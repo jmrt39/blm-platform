@@ -18,12 +18,14 @@ import {
 import { errMsg, money, num } from "../lib/format";
 import { cn } from "../lib/utils";
 import { StudioBoard } from "../components/studio-board";
+import { IntakeTab } from "../components/studio-intake";
 import { when } from "./studio";
 
 export type Build = NonNullable<ReturnType<typeof useStudioBuild>["data"]>;
 type Brief = Build["impl"]["brief"];
 
 const TABS = [
+  { key: "intake", label: "Intake" },
   { key: "brief", label: "Brief" },
   { key: "materials", label: "Materials" },
   { key: "history", label: "Last year" },
@@ -34,7 +36,7 @@ type TabKey = (typeof TABS)[number]["key"];
 
 export default function StudioClient({ orgId }: { orgId: string }) {
   const q = useStudioBuild(orgId);
-  const [tab, setTab] = useState<TabKey>(() => (sessionStorage.getItem(`studio-tab-${orgId}`) as TabKey) || "brief");
+  const [tab, setTab] = useState<TabKey>(() => (sessionStorage.getItem(`studio-tab-${orgId}`) as TabKey) || "intake");
   useEffect(() => sessionStorage.setItem(`studio-tab-${orgId}`, tab), [tab, orgId]);
   if (q.isLoading) return <Loading />;
   if (!q.data) return <ErrorNote error={q.error} />;
@@ -80,6 +82,7 @@ export default function StudioClient({ orgId }: { orgId: string }) {
           </button>
         ))}
       </div>
+      {tab === "intake" && <IntakeTab orgId={b.org.id} orgName={b.org.name} onTab={setTab} />}
       {tab === "brief" && <BriefTab b={b} />}
       {tab === "materials" && <MaterialsTab b={b} />}
       {tab === "history" && <HistoryTab b={b} />}

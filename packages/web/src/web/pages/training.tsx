@@ -390,7 +390,7 @@ export function ModulePage() {
               <span className="label mt-3">{d.member.name}</span>
               <SignaturePad onChange={setTraineeSig} caption="Trainee" />
               <span className="label mt-3">Note (optional)</span>
-              <input aria-label="Sign-off note" className="field" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Strong on the wine pour" />
+              <input aria-label="Sign off note" className="field" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Strong on the wine pour" />
               {sign.error && <div className="mt-2 text-[12.5px] text-oxblood">{errMsg(sign.error)}</div>}
               <button className="btn btn-ink mt-4 w-full" disabled={!trainerSig || !traineeSig || sign.isPending}>
                 <GraduationCap className="size-4" /> Sign off module

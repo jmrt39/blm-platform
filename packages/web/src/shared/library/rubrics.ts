@@ -33,7 +33,7 @@ export const RUBRICS: Rubric[] = [
       { key: "open", label: "Foil & cork", look: "Clean foil cut below the lip; cork out quietly; placed to the host's right." },
       { key: "taste", label: "Taste pour", look: "Small taste to the host; waits for approval." },
       { key: "pour", label: "Pouring order & measure", look: "Ladies first, clockwise, host last; 5 oz; no drips." },
-      { key: "story", label: "One sentence of story", look: "Producer, place and why it suits the dish — in one sentence." },
+      { key: "story", label: "One sentence of story", look: "Producer, place and why it suits the dish, in one sentence." },
     ],
   },
   {
@@ -55,7 +55,7 @@ export const RUBRICS: Rubric[] = [
     slug: "pos-accuracy",
     title: "POS walkthrough with trainer",
     kind: "skill",
-    summary: "Ring a four-top from open to close with the trainer beside you.",
+    summary: "Ring a four top from open to close with the trainer beside you.",
     module: "pos-walkthrough",
     roles: ["server", "bartender", "sommelier", "host"],
     criteria: [
@@ -84,7 +84,7 @@ export const RUBRICS: Rubric[] = [
     slug: "silverware-setting",
     title: "Silverware & table setting",
     kind: "skill",
-    summary: "Polish, roll and set a four-top to the 1906 standard.",
+    summary: "Polish, roll and set a four top to the 1906 standard.",
     module: "table-setting-sidework",
     roles: ["server", "busser", "food_runner", "host", "expo", "barback", "bartender"],
     criteria: [

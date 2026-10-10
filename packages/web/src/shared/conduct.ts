@@ -177,12 +177,12 @@ export function infractionsFor(e: EntryLike, shift: Shift) {
     out.push({
       type: "late",
       minutesLate: e.minutesLate!,
-      detail: `${e.minutesLate} min late for the ${sh} shift — scheduled ${clock12(e.scheduledStart)}, arrived ${clock12(e.arrivedAt)}.`,
+      detail: `${e.minutesLate} min late for the ${sh} shift. Scheduled ${clock12(e.scheduledStart)}, arrived ${clock12(e.arrivedAt)}.`,
     });
   if ((e.arrival === "on_time" || e.arrival === "late") && e.uniformOk === false)
     out.push({
       type: "dress_code",
-      detail: `Out of dress code at the ${sh} line-up${e.uniformMissing.length ? `: ${e.uniformMissing.join(", ").toLowerCase()}` : ""}.`,
+      detail: `Out of dress code at the ${sh} line up${e.uniformMissing.length ? `: ${e.uniformMissing.join(", ").toLowerCase()}` : ""}.`,
     });
   if (e.arrival === "no_show") out.push({ type: "no_show", detail: `No show for the ${sh} shift (scheduled ${clock12(e.scheduledStart)}).` });
   if (e.arrival === "swap_unapproved")

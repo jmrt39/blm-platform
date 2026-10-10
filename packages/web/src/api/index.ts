@@ -24,6 +24,7 @@ import { library } from "./routes/library";
 import { studio } from "./routes/studio";
 import { history } from "./routes/history";
 import { plans } from "./routes/plans";
+import { intake } from "./routes/intake";
 
 export const router = {
   ping,
@@ -49,6 +50,7 @@ export const router = {
   studio,
   history,
   plans,
+  intake,
 };
 
 export type AppRouter = typeof router;

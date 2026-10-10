@@ -40,7 +40,7 @@ function assertCanSee(v: Viewer, memberId: string, storeId: string) {
 
 async function loadAction(v: Viewer, id: string) {
   const [a] = await db.select().from(s.disciplinaryActions).where(eq(s.disciplinaryActions.id, id));
-  if (!a) throw new ORPCError("NOT_FOUND", { message: "Write-up not found." });
+  if (!a) throw new ORPCError("NOT_FOUND", { message: "Write up not found." });
   assertCanSee(v, a.memberId, a.storeId);
   return a;
 }
@@ -351,7 +351,7 @@ export const conduct = {
           memberName: sw.fromName,
           type: "swap_protocol",
           businessDate: sw.businessDate,
-          detail: `Swapped the ${SHIFT_LABEL[sw.shift].toLowerCase()} shift (${clock12(sw.startTime)}) to ${sw.toName} without proof${missing.length ? ` — screenshot didn't show the ${missing.join(", ")}` : ""}.`,
+          detail: `Swapped the ${SHIFT_LABEL[sw.shift].toLowerCase()} shift (${clock12(sw.startTime)}) to ${sw.toName} without proof${missing.length ? `. The screenshot didn't show the ${missing.join(", ")}` : ""}.`,
           swapId: sw.id,
           recordedByName: v.accessName,
         });
@@ -398,11 +398,11 @@ export const conduct = {
     .handler(async ({ input, context }) => {
       const v = context.viewer;
       const a = await loadAction(v, input.id);
-      if (a.status !== "awaiting_signatures") throw new ORPCError("BAD_REQUEST", { message: "This write-up isn't waiting for signatures." });
+      if (a.status !== "awaiting_signatures") throw new ORPCError("BAD_REQUEST", { message: "This write up isn't waiting for signatures." });
       const now = new Date();
       if (input.as === "manager") {
         if (!input.signature) throw new ORPCError("BAD_REQUEST", { message: "Sign first." });
-        if (v.member?.id === a.memberId) throw new ORPCError("FORBIDDEN", { message: "Another manager must issue your write-up." });
+        if (v.member?.id === a.memberId) throw new ORPCError("FORBIDDEN", { message: "Another manager must issue your write up." });
         await db
           .update(s.disciplinaryActions)
           .set({

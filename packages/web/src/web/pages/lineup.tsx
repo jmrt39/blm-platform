@@ -251,7 +251,7 @@ function Running({ d, tz }: { d: Data; tz: string }) {
             className="field min-h-[72px] !py-2 text-[13.5px]"
             key={l.topics}
             defaultValue={l.topics}
-            placeholder="Tonight's focus: suggest the half-bottle list at every two-top. 86 the halibut. Party of 12 at 7:30, nut allergy on table 4."
+            placeholder="Tonight's focus: suggest the half bottle list at every two top. 86 the halibut. Party of 12 at 7:30, nut allergy on table 4."
             onBlur={(e) => e.target.value !== l.topics && setLineup.mutate({ id: l.id, topics: e.target.value })}
           />
         </div>
@@ -438,7 +438,7 @@ function PreShift({ d }: { d: Data }) {
   return (
     <div className="rounded-[2px] border rule p-5 md:p-6">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <div className="eyebrow">Pre-shift board</div>
+        <div className="eyebrow">Pre shift board</div>
         <div className="text-[11.5px] text-ink-soft">Read it out at line up. Saves as you type.</div>
       </div>
       <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
@@ -483,7 +483,7 @@ function StandingNote({ s, adding }: { s: { strikes: number; step: Step | null }
     <div className="mt-3 flex items-center gap-3 text-[12px]">
       <StrikeDots n={after} />
       <span className={cn(after >= 3 ? "font-semibold text-oxblood" : "text-ink-soft")}>
-        {after} in 90 days{opens ? `, opens a ${STEP_LABEL[opens].toLowerCase()} write-up` : ""}
+        {after} in 90 days{opens ? `, opens a ${STEP_LABEL[opens].toLowerCase()} write up` : ""}
       </span>
     </div>
   );

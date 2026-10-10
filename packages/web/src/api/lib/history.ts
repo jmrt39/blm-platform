@@ -1,5 +1,5 @@
 // Last year's daily totals, handed over before launch, compared like for like with this year's shift reports.
-import { and, gte, inArray, lte } from "drizzle-orm";
+import { and, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "../database";
 import * as s from "../database/schema";
 import { addDays } from "./time";
@@ -77,4 +77,21 @@ export async function historyCoverage(storeIds: string[]) {
     out.set(id, { days: ds.length, from: ds[0] ?? null, to: ds[ds.length - 1] ?? null });
   }
   return out;
+}
+
+export type HistoryRow = { date: string; netSales: number; tickets: number; covers: number };
+
+/** Upsert daily totals for one store. Re-importing a date replaces it. */
+export async function upsertHistory(store: { id: string; orgId: string }, input: HistoryRow[]) {
+  const rows = [...new Map(input.map((r) => [r.date, r])).values()];
+  for (let i = 0; i < rows.length; i += 80) {
+    await db
+      .insert(s.historyDays)
+      .values(rows.slice(i, i + 80).map((r) => ({ orgId: store.orgId, storeId: store.id, ...r })))
+      .onConflictDoUpdate({
+        target: [s.historyDays.storeId, s.historyDays.date],
+        set: { netSales: sql`excluded.net_sales`, tickets: sql`excluded.tickets`, covers: sql`excluded.covers` },
+      });
+  }
+  return rows.length;
 }

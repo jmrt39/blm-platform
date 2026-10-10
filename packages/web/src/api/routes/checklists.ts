@@ -184,7 +184,7 @@ export const checklists = {
   /** Re-open a verified (not yet submitted) checklist. */
   unverify: managerBase.input(z.object({ id: z.string() })).handler(async ({ input, context }) => {
     const c = await loadChecklist(context.viewer, input.id);
-    if (c.status !== "verified") throw new ORPCError("BAD_REQUEST", { message: "Only a verified checklist can be re-opened." });
+    if (c.status !== "verified") throw new ORPCError("BAD_REQUEST", { message: "Only a verified checklist can be reopened." });
     await db
       .update(s.checklists)
       .set({ status: "open", signature: null, verifiedAt: null, verifiedById: null, verifiedByName: null, verifiedByRole: null })

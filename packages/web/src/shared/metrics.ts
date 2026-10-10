@@ -124,7 +124,7 @@ export const METRICS: Record<MetricKey, MetricDef> = {
     what: "What the room actually sold.",
     formula: "Gross sales − comps − voids − discounts − refunds",
     source: "POS end of day, entered or uploaded on the nightly shift report",
-    exclusions: "Tax, tips, service charges, gift card sales, post-close adjustments",
+    exclusions: "Tax, tips, service charges, gift card sales, post close adjustments",
   },
   covers: {
     label: "Covers",
@@ -158,7 +158,7 @@ export const METRICS: Record<MetricKey, MetricDef> = {
     label: "On time checklist completion",
     what: "Checklists signed off by a manager before their due time.",
     formula: "Checklists submitted on time ÷ checklists expected",
-    source: "Checklist sign-offs (manager signature time vs due time)",
+    source: "Checklist sign offs (manager signature time vs due time)",
     exclusions: "Today's checklists are only counted once their due time has passed. N/A lines count as done when a reason is given",
   },
   opportunity: {

@@ -68,7 +68,7 @@ function Forecast({ b, expected, setExpected }: { b: Board; expected: number | n
     <div className="mb-10 grid gap-8 md:grid-cols-[1.1fr_1fr]">
       <div className="rounded-[2px] border-2 border-ink p-6">
         <div className="eyebrow mb-2 flex items-center gap-2">
-          <Moon className="size-3.5" /> {shortDay(b.today)} {b.shift} · {b.lineupStarted ? "from tonight's line-up" : "from the selling roster"}
+          <Moon className="size-3.5" /> {shortDay(b.today)} {b.shift} · {b.lineupStarted ? "from tonight's line up" : "from the selling roster"}
         </div>
         <div className="font-display text-[26px] leading-tight md:text-[30px]">
           {b.needServers > onFloor ? (

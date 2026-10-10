@@ -8,7 +8,7 @@ import { db } from "../database";
 import * as s from "../database/schema";
 import { randomDigits, uniqueStoreNumber } from "../lib/access";
 import { seedTemplates } from "../lib/core";
-import { historyCoverage } from "../lib/history";
+import { historyCoverage, upsertHistory } from "../lib/history";
 import { compile, copyStandard, draftNew, EMPTY_BRIEF, kickQueue, publish, standardFor, titleOf } from "../lib/studio";
 import { suggestPriorities, transcribe } from "../lib/studio-ai";
 import { CONTENT_TYPES, SCHEMA_BY_TYPE, type ContentType } from "../../shared/library/schemas";
@@ -20,13 +20,13 @@ const userBase = base.use(async ({ context, next }) => {
   return next({ context: { user: session.user } });
 });
 
-const studioBase = userBase.use(async ({ context, next }) => {
+export const studioBase = userBase.use(async ({ context, next }) => {
   const [staff] = await db.select().from(s.studioStaff).where(eq(s.studioStaff.userId, context.user.id));
   if (!staff) throw new ORPCError("FORBIDDEN", { message: "The Studio is for BLM staff." });
   return next({ context: { staff } });
 });
 
-async function implFor(orgId: string) {
+export async function implFor(orgId: string) {
   const [impl] = await db.select().from(s.implementations).where(eq(s.implementations.orgId, orgId));
   if (!impl) throw new ORPCError("NOT_FOUND", { message: "No build started for this client." });
   return impl;
@@ -426,19 +426,9 @@ export const studio = {
     .handler(async ({ input }) => {
       const [store] = await db.select().from(s.stores).where(eq(s.stores.id, input.storeId));
       if (!store) throw new ORPCError("NOT_FOUND", { message: "Store not found." });
-      const uniq = new Map(input.rows.map((r) => [r.date, r]));
-      const rows = [...uniq.values()];
-      for (let i = 0; i < rows.length; i += 80) {
-        await db
-          .insert(s.historyDays)
-          .values(rows.slice(i, i + 80).map((r) => ({ orgId: store.orgId, storeId: store.id, ...r })))
-          .onConflictDoUpdate({
-            target: [s.historyDays.storeId, s.historyDays.date],
-            set: { netSales: sql`excluded.net_sales`, tickets: sql`excluded.tickets`, covers: sql`excluded.covers` },
-          });
-      }
+      const imported = await upsertHistory(store, input.rows);
       const cov = (await historyCoverage([store.id])).get(store.id)!;
-      return { imported: rows.length, ...cov };
+      return { imported, ...cov };
     }),
 
   clearHistory: studioBase.input(z.object({ storeId: z.string() })).handler(async ({ input }) => {

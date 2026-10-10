@@ -69,6 +69,13 @@ function GettingStarted() {
           </li>
         ))}
       </ol>
+      <p className="mt-5 text-[12.5px] text-[#b5ab9d]">
+        Rather do it in one go?{" "}
+        <a href="/templates/blm-client-intake.xlsx" download="BLM client intake.xlsx" className="font-semibold text-gold underline">
+          Download the intake sheet
+        </a>
+        , fill in what you have and send it to BLM. Stores, targets, review pages, your team and last year's sales are set up from it.
+      </p>
     </motion.section>
   );
 }
@@ -575,7 +582,7 @@ function StaffHome() {
               </div>
               <Bar value={c.done} max={c.total} className="mt-4" tone={c.status === "submitted" ? "gold" : "ink"} />
               <div className="mt-4 text-[13px] font-semibold text-gold-deep group-hover:underline">
-                {c.status === "open" ? "Initial your lines →" : "View sign-off →"}
+                {c.status === "open" ? "Initial your lines →" : "View sign off →"}
               </div>
             </Link>
           ))}

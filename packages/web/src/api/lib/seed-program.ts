@@ -122,7 +122,7 @@ export async function seedProgram(opts: {
             businessDate: addDays(today, -Math.max(0, day - 1)),
             scores,
             notes: {},
-            summary: gradeBest >= 4 ? "Clean, confident and to spec." : "Getting there. Re-run this one next week.",
+            summary: gradeBest >= 4 ? "Clean, confident and to spec." : "Getting there. Rerun this one next week.",
             average: gradeBest,
             graderId: trainer.id,
             graderName: trainer.name,
@@ -275,7 +275,7 @@ export async function seedProgram(opts: {
         const sp = special[m.name]?.[kind];
         if (sp === "missing") continue;
         const exp = typeof sp === "number" ? sp : 90 + Math.floor(rand() * 600);
-        certFor(m, kind, exp, kind === "food_handler" ? "ServSafe Food Handler" : "TIPS On-Premise");
+        certFor(m, kind, exp, kind === "food_handler" ? "ServSafe Food Handler" : "TIPS On Premise");
       }
     }
     const somm = st.roster.find((m) => m.role === "sommelier");
@@ -429,8 +429,8 @@ export async function seedProgram(opts: {
     // ── Log book ─────────────────────────────────────────────────────────
     const L = (<[number, "lunch" | "dinner", "note" | "maintenance" | "incident", string, string, "open" | "resolved", string?][][]>[
       [
-        [0, "dinner", "maintenance", "Walk-in cooler door gasket torn", "Bottom left corner of the gasket is split. Door doesn't seal unless you lean on it. Temps holding at 38°F for now.", "open"],
-        [1, "dinner", "note", "Big Friday-level Tuesday", "142 covers, two VIP anniversaries. Camille ran section 4 solo for the first full turn and it was clean.", "resolved"],
+        [0, "dinner", "maintenance", "Walk in cooler door gasket torn", "Bottom left corner of the gasket is split. Door doesn't seal unless you lean on it. Temps holding at 38°F for now.", "open"],
+        [1, "dinner", "note", "Big Friday level Tuesday", "142 covers, two VIP anniversaries. Camille ran section 4 solo for the first full turn and it was clean.", "resolved"],
         [4, "dinner", "incident", "Guest slipped near the bar rail", "Guest slipped on spilled ice near the bar rail around 8:40. No injury, declined medical. Area mopped and wet floor sign placed. Comped dessert.", "resolved", "Barback now sweeps the rail every 20 minutes on Friday and Saturday."],
         [9, "lunch", "maintenance", "Patio heater 3 won't light", "Pilot clicks, no flame. Tagged out of service.", "open"],
         [16, "dinner", "note", "Wine dinner sold out", "Barolo dinner on the 24th is full at 48. Waitlist of 11.", "resolved"],

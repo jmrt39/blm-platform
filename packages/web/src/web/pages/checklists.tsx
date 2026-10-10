@@ -366,7 +366,7 @@ export function ChecklistDetail() {
         ))}
       </div>
 
-      {/* Sign-off */}
+      {/* Sign off */}
       <div className="mt-12 grid gap-8 border-t-2 border-ink pt-8 md:grid-cols-[1fr_auto]">
         {c.status === "open" ? (
           canVerify ? (
@@ -408,7 +408,7 @@ export function ChecklistDetail() {
                   Submit {c.type} checklist
                 </button>
                 <button onClick={() => unverify.mutate({ id: c.id })} className="btn btn-line">
-                  Re-open
+                  Reopen
                 </button>
               </div>
             )}
@@ -466,7 +466,7 @@ function ChecklistRules({
     <div className="mb-6 rounded-[2px] border rule">
       <button onClick={() => setOpen((o) => !o)} className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left text-[13px]">
         <span>
-          <b>Business date {shortDay(businessDate)}</b> · window {timeOf(rules.opensAt, tz)} – {timeOf(rules.dueAt, tz)}
+          <b>Business date {shortDay(businessDate)}</b> · window {timeOf(rules.opensAt, tz)} to {timeOf(rules.dueAt, tz)}
           {type === "closing" ? " (next morning)" : ""} · {zone}
         </span>
         <span className="font-semibold text-gold-deep">{open ? "Hide the rules" : "How this checklist works"}</span>

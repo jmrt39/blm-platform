@@ -384,7 +384,7 @@ export const reports = {
     }
     for (const st of night.stores) {
       if (st.nights === 0)
-        actions.push({ priority: 1, kind: "report", text: `${st.name}: no shift report for ${lastNight}`, detail: "Enter it from the POS end-of-day", href: `/shift-report?store=${st.id}`, cta: "Enter report" });
+        actions.push({ priority: 1, kind: "report", text: `${st.name}: no shift report for ${lastNight}`, detail: "Enter it from the POS end of day", href: `/shift-report?store=${st.id}`, cta: "Enter report" });
       else if (st.spt < st.ticketTarget)
         actions.push({
           priority: 2,

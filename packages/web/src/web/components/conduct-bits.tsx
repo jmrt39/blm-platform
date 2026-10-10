@@ -249,7 +249,7 @@ export function ConductSection({ memberId }: { memberId: string }) {
         </div>
         {live.length > 0 && (
           <div>
-            <div className="eyebrow mb-2">Write-ups</div>
+            <div className="eyebrow mb-2">Write ups</div>
             <ul className="divide-y divide-paper-line border-y rule">
               {live.map((a) => (
                 <li key={a.id}>

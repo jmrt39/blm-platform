@@ -50,7 +50,7 @@ function ManagerConduct() {
         <>
           {!combined && (
             <Link href="/lineup" className="btn btn-ink">
-              <Megaphone className="size-4" /> Run line-up
+              <Megaphone className="size-4" /> Run line up
             </Link>
           )}
           <Link href="/conduct/swap" className="btn btn-line">
@@ -139,7 +139,7 @@ function ManagerConduct() {
               </div>
               {d.recentActions.length > 0 && (
                 <div>
-                  <div className="eyebrow mb-2">Write-ups on file</div>
+                  <div className="eyebrow mb-2">Write ups on file</div>
                   <ul className="divide-y divide-paper-line border-y rule">
                     {d.recentActions.map((a) => (
                       <li key={a.id}>
@@ -174,7 +174,7 @@ function Attention({ d, combined, storeName }: { d: Overview; combined: boolean;
   if (!owner.length && !sign.length && !swaps.length && !acks.length)
     return (
       <div className="flex items-center gap-3 rounded-[2px] bg-paper-2 px-5 py-4 text-[13.5px]">
-        <Check className="size-4 text-sage" /> Nothing waiting. Every strike is signed for, every write-up is on file and every swap is reviewed.
+        <Check className="size-4 text-sage" /> Nothing waiting. Every strike is signed for, every write up is on file and every swap is reviewed.
       </div>
     );
   return (
@@ -202,7 +202,7 @@ function Attention({ d, combined, storeName }: { d: Overview; combined: boolean;
         )}
         {sign.length > 0 && (
           <div>
-            <div className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Write-ups to sign</div>
+            <div className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Write ups to sign</div>
             <ul className="divide-y divide-paper-line border-y rule">
               {sign.map((a) => (
                 <li key={a.id}>
@@ -224,7 +224,7 @@ function Attention({ d, combined, storeName }: { d: Overview; combined: boolean;
         )}
         {acks.length > 0 && (
           <div>
-            <div className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Strikes waiting for a signature · weren't at line-up</div>
+            <div className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-ink-soft">Strikes waiting for a signature · weren't at line up</div>
             <div className="divide-y divide-paper-line border-y rule">
               {acks.map((list) => (
                 <AckPanel key={list[0]!.memberId} events={list} />
@@ -341,7 +341,7 @@ function SwapReview({ s }: { s: Overview["swaps"][number] }) {
             </button>
           ))}
         </div>
-        <div className="mt-2 text-[11.5px] text-ink-soft">A thumbs-up or emoji is not a written agreement.</div>
+        <div className="mt-2 text-[11.5px] text-ink-soft">A thumbs up or emoji is not a written agreement.</div>
         <input aria-label="Note" className="field mt-3 !h-9 !text-[13px]" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
         {s.worked && (
           <label className="mt-2 flex items-center gap-2 text-[12px] text-ink-soft">

@@ -61,7 +61,7 @@ export default function LogbookPage() {
         <>
           <div className="mb-10 grid grid-cols-2 gap-6 md:grid-cols-4">
             <Stat label="Open maintenance" value={rows.filter((e) => e.kind === "maintenance" && e.status === "open").length} tone="gold" sub="Until someone marks it fixed" />
-            <Stat label="Open incidents" value={rows.filter((e) => e.kind === "incident" && e.status === "open").length} tone="bad" sub="Need a follow-up note" />
+            <Stat label="Open incidents" value={rows.filter((e) => e.kind === "incident" && e.status === "open").length} tone="bad" sub="Need a follow up note" />
             <Stat label="Entries" value={rows.length} sub="Last 21 days" />
             <Stat label="Photos" value={rows.filter((e) => e.photoUrl).length} sub="Attached to entries" />
           </div>
@@ -163,7 +163,7 @@ function NewEntry({ onDone }: { onDone: () => void }) {
           maxLength={140}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder={kind === "maintenance" ? "Walk-in door not sealing" : kind === "incident" ? "Guest slipped by the host stand" : "Table 12 celebrating 40th, comped dessert"}
+          placeholder={kind === "maintenance" ? "Walk in door not sealing" : kind === "incident" ? "Guest slipped by the host stand" : "Table 12 celebrating 40th, comped dessert"}
         />
       </div>
       <div className="mt-4">
@@ -262,7 +262,7 @@ export function LogEntryPage() {
                   className="field !h-20 py-2"
                   value={note}
                   onChange={(ev) => setNote(ev.target.value)}
-                  placeholder={e.kind === "maintenance" ? "Who fixed it, cost, invoice number" : "Follow-up taken, who was told"}
+                  placeholder={e.kind === "maintenance" ? "Who fixed it, cost, invoice number" : "Follow up taken, who was told"}
                 />
                 {resolve.error && <div className="mt-2 text-oxblood">{errMsg(resolve.error)}</div>}
                 <button className="btn btn-ink mt-3 w-full" disabled={resolve.isPending}>

@@ -65,7 +65,7 @@ export function demoShot(kind: string, sw: SwapLike) {
   return phone(
     sw.toName,
     sent,
-    me(`Hey ${first(sw.toName)} — any chance you can take my ${shift} shift on ${wd}, ${md}? Call time is ${call}.`) +
+    me(`Hey ${first(sw.toName)}, any chance you can take my ${shift} shift on ${wd}, ${md}? Call time is ${call}.`) +
       them(`Yes, I'll take your ${wd} ${shift} ${short}. I'll be there.`) +
       me("Thank you!! Putting the request in now") +
       read,

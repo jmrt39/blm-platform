@@ -42,7 +42,7 @@ export default function ReportsPage() {
             <h1 className="font-display text-[34px] leading-none md:text-[44px]">{title}</h1>
             {r && (
               <div className="mt-2 text-[12.5px] text-ink-soft">
-                {shortDay(r.from)} – {shortDay(r.to)} · {r.days} nights · compared with the {r.days} before
+                {shortDay(r.from)} to {shortDay(r.to)} · {r.days} nights · compared with the {r.days} before
               </div>
             )}
           </div>

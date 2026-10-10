@@ -39,7 +39,7 @@ const STORY: { events: Ev[]; actions: Act[]; swaps: Sw[] }[] = [
       { name: "Sam Whitaker", d: 11, type: "dress_code", missing: ["Apron", "Wine key & pens"] },
       { name: "Theo Grant", d: 15, type: "late", min: 14 },
       { name: "Theo Grant", d: 3, type: "no_show", status: "pending" },
-      { name: "Nadia Haddad", d: 18, type: "late", min: 26, status: "excused", excuse: "Subway signal outage on the Red Line — texted at 3:40, MTA notice on file." },
+      { name: "Nadia Haddad", d: 18, type: "late", min: 26, status: "excused", excuse: "Subway signal outage on the Red Line. Texted at 3:40, MTA notice on file." },
       { name: "Nadia Haddad", d: 9, type: "dress_code", missing: ["Name badge"] },
     ],
     actions: [
@@ -75,13 +75,13 @@ const STORY: { events: Ev[]; actions: Act[]; swaps: Sw[] }[] = [
     actions: [
       { name: "Jamal Harris", d: 52, step: "verbal", strikes: 3, status: "final" },
       { name: "Jamal Harris", d: 35, step: "written", strikes: 4, status: "final", notes: "Swaps go through a manager with a screenshot showing date, start time and written agreement. No exceptions." },
-      { name: "Jamal Harris", d: 18, step: "plan", strikes: 5, status: "final", notes: "30-day plan: on the floor and in uniform by the scheduled start every shift. Weekly check-in with Andre." },
-      { name: "Jamal Harris", d: 4, step: "termination", strikes: 6, status: "awaiting_owner", notes: "Sixth strike in 90 days while on a performance plan — 22 minutes late to dinner line-up." },
+      { name: "Jamal Harris", d: 18, step: "plan", strikes: 5, status: "final", notes: "30 day plan: on the floor and in uniform by the scheduled start every shift. Weekly check in with Andre." },
+      { name: "Jamal Harris", d: 4, step: "termination", strikes: 6, status: "awaiting_owner", notes: "Sixth strike in 90 days while on a performance plan: 22 minutes late to dinner line up." },
       { name: "Mateo Silva", d: 30, step: "verbal", strikes: 3, status: "final" },
       { name: "Mateo Silva", d: 12, step: "written", strikes: 4, status: "final", notes: "On the floor by the scheduled start, every shift." },
     ],
     swaps: [
-      { from: "Jamal Harris", to: "Kiera Walsh", d: 35, shift: "dinner", shot: "thumbs", status: "rejected", note: "A thumbs-up isn't a written agreement — no date or start time either." },
+      { from: "Jamal Harris", to: "Kiera Walsh", d: 35, shift: "dinner", shot: "thumbs", status: "rejected", note: "A thumbs up isn't a written agreement. No date or start time either." },
       { from: "Sofia Marino", to: "Isaac Turner", d: -1, shift: "lunch", shot: "ok", status: "pending" },
       { from: "Olivia Chen", to: "Isaac Turner", d: 8, shift: "dinner", shot: "ok", status: "approved" },
     ],
@@ -92,7 +92,7 @@ const STORY: { events: Ev[]; actions: Act[]; swaps: Sw[] }[] = [
       { name: "Ryan Doyle", d: 17, type: "late", min: 10 },
       { name: "Ryan Doyle", d: 8, type: "dress_code", missing: ["Black trousers or skirt"] },
       { name: "Diego Herrera", d: 5, type: "dress_code", missing: ["Black non slip shoes"] },
-      { name: "Zoe Alvarez", d: 10, type: "late", min: 31, status: "excused", excuse: "Called ahead — car accident on the parkway, police report shown." },
+      { name: "Zoe Alvarez", d: 10, type: "late", min: 31, status: "excused", excuse: "Called ahead: car accident on the parkway, police report shown." },
     ],
     actions: [],
     swaps: [{ from: "Emma Fischer", to: "Aaliyah Jordan", d: 3, shift: "dinner", shot: "ok", status: "approved" }],
@@ -304,11 +304,11 @@ export async function seedConduct(opts: {
 }
 
 const TOPICS = [
-  "Focus: suggest a half bottle at every two-top. 86 the halibut. Party of 12 at 7:30, nut allergy on table 4.",
-  "VIP: the Hendersons, table 21, anniversary — dessert on us. Feature: Dover sole tableside.",
+  "Focus: suggest a half bottle at every two top. 86 the halibut. Party of 12 at 7:30, nut allergy on table 4.",
+  "VIP: the Hendersons, table 21, anniversary, dessert on us. Feature: Dover sole tableside.",
   "Upsell the reserve pours. Check average target tonight is the store target plus $4.",
-  "Private dining at 6:00 — 24 guests, set menu. Two servers off the floor until 8.",
-  "Pre-bus every course. Second-round drink offer within four minutes of the first.",
-  "New spring cocktail: Rhubarb Collins. Everyone tastes it at line-up.",
+  "Private dining at 6:00, 24 guests, set menu. Two servers off the floor until 8.",
+  "Prebus every course. Second round drink offer within four minutes of the first.",
+  "New spring cocktail: Rhubarb Collins. Everyone tastes it at line up.",
   "Patio opens at 5:00. Heaters on, blankets in the host stand.",
 ];

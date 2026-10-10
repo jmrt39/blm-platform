@@ -690,6 +690,16 @@ export type StudioBrief = {
   storeTargets: { storeId: string; ticketTarget: number }[];
 };
 
+/** The last intake sheet imported for a client, and what the owner said about each piece of material. */
+export type StudioIntake = {
+  importedAt: number;
+  byName: string;
+  fileName: string;
+  materials: { what: string; have: string; how: string; notes: string }[];
+  /** Stores whose targets and training rate came from the owner's sheet, so a $78 or $15 there is a choice, not a default. */
+  confirmed?: { targets: string[]; rates: string[] };
+};
+
 /** One client's build: the audit brief, what BLM collected, and where it is in the process. */
 export const implementations = sqliteTable(
   "implementations",
@@ -700,6 +710,7 @@ export const implementations = sqliteTable(
       .notNull()
       .default("brief"),
     brief: text("brief", { mode: "json" }).$type<StudioBrief>().notNull(),
+    intake: text("intake", { mode: "json" }).$type<StudioIntake>(),
     createdByName: text("created_by_name").notNull(),
     createdAt: createdAt(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })

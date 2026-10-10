@@ -115,7 +115,7 @@ export default function QuizzesPage() {
                 ) : (
                   <Empty>Not enough answers yet.</Empty>
                 )}
-                <div className="mt-3 text-[12px] text-ink-soft">Teach these at line-up. Right first time, all attempts at this store.</div>
+                <div className="mt-3 text-[12px] text-ink-soft">Teach these at line up. Right first time, all attempts at this store.</div>
               </div>
               <div>
                 <SectionTitle>Recent attempts</SectionTitle>
@@ -248,7 +248,7 @@ export function QuizTake() {
         <div>
           {!canTake && (
             <div className="mb-6 rounded-[2px] border border-gold-deep/50 bg-gold/10 px-4 py-3 text-[13px]">
-              You're previewing. Staff take checks on their phone after PIN sign-in; use View as to try it as a server.
+              You're previewing. Staff take checks on their phone after PIN sign in; use View as to try it as a server.
             </div>
           )}
           {saved && Object.keys(saved.answers).length > 0 && answered > 0 && (

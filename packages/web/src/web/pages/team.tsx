@@ -631,7 +631,7 @@ export function AddColleague() {
             {f.name} is on the roster at <b>{v.me.stores.find((s) => s.id === f.storeId)?.name}</b> as {ROLE_LABEL[f.role]}. Their 30/60/90 plan has started with {done.onboardingItems} steps.
           </p>
           <div className="my-7 rounded-[2px] bg-noir p-6 text-ivory">
-            <div className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-gold">Sign-in for the floor</div>
+            <div className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-gold">Sign in for the floor</div>
             <div className="mt-3 grid grid-cols-2 gap-4">
               <div>
                 <div className="text-[12px] text-[#b9b0a3]">Store number</div>

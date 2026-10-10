@@ -21,7 +21,7 @@ const sig = z.string().min(10).max(20000);
 
 async function loadLineup(v: Viewer, id: string) {
   const [l] = await db.select().from(s.lineups).where(eq(s.lineups.id, id));
-  if (!l) throw new ORPCError("NOT_FOUND", { message: "Line-up not found." });
+  if (!l) throw new ORPCError("NOT_FOUND", { message: "Line up not found." });
   assertStore(v, l.storeId);
   return l;
 }
@@ -29,7 +29,7 @@ async function loadOpenEntry(v: Viewer, entryId: string) {
   const [e] = await db.select().from(s.lineupEntries).where(eq(s.lineupEntries.id, entryId));
   if (!e) throw new ORPCError("NOT_FOUND");
   const l = await loadLineup(v, e.lineupId);
-  if (l.status !== "open") throw new ORPCError("BAD_REQUEST", { message: "This line-up is already signed." });
+  if (l.status !== "open") throw new ORPCError("BAD_REQUEST", { message: "This line up is already signed." });
   return { e, l };
 }
 
@@ -127,7 +127,7 @@ export const lineups = {
       try {
         await db.insert(s.lineups).values({ id, storeId: store.id, businessDate: date, shift: input.shift, callTime });
       } catch {
-        throw new ORPCError("CONFLICT", { message: "This line-up has already been started." });
+        throw new ORPCError("CONFLICT", { message: "This line up has already been started." });
       }
       const roster = (await rosterOf(store.id)).filter((r) => !isManagementRole(r.role));
       const swaps = await db
@@ -265,7 +265,7 @@ export const lineups = {
       .select({ id: s.lineupEntries.id })
       .from(s.lineupEntries)
       .where(and(eq(s.lineupEntries.lineupId, l.id), eq(s.lineupEntries.memberId, m.id)));
-    if (dupe) throw new ORPCError("CONFLICT", { message: `${m.name} is already on this line-up.` });
+    if (dupe) throw new ORPCError("CONFLICT", { message: `${m.name} is already on this line up.` });
     await db.insert(s.lineupEntries).values({ lineupId: l.id, memberId: m.id, name: m.name, role: m.role, scheduledStart: l.callTime, sort: 999 });
     return { ok: true };
   }),
