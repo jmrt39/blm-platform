@@ -110,17 +110,17 @@ Decisions (user answered form + message):
   Graduation is signed off and resets the person to zero (strikes and write ups before that day stop counting).
 - Website switches to the same rules.
 Progress
-- [ ] shared rules (metrics.ts, program.ts)
-- [ ] schema + db:push
-- [ ] perf lib (counted lines, weighted target, rolling 30, conduct blocks)
-- [ ] conduct reset + ratings
-- [ ] rewards board rewrite
-- [ ] shift report: shift + type per line, target snapshot, CSV columns
-- [ ] stores targets grid, team employment + adjustment
-- [ ] reports/team/slow use counted lines
-- [ ] performance plan UI (write-up page) + conduct overview
-- [ ] seed + backfill demo orgs; Harbor House target
-- [ ] copy: rewards library, metrics, rewards page, docs
+- [x] shared rules (metrics.ts, program.ts)
+- [x] schema + db:push
+- [x] perf lib (counted lines, weighted target, rolling 30, conduct blocks)
+- [x] conduct reset + ratings
+- [x] rewards board rewrite
+- [x] shift report: shift + type per line, target snapshot, CSV columns
+- [x] stores targets grid, team employment + adjustment
+- [x] reports/team/slow use counted lines
+- [x] performance plan UI (write-up page) + conduct overview
+- [x] seed + backfill demo orgs; Harbor House target
+- [x] copy: rewards library, metrics, rewards page, docs
 - [ ] website
 - [ ] verify, commit
 
@@ -134,3 +134,10 @@ Progress
 - [ ] Auto tag: fuzzy match staff names in review text (misspellings, closest name); manager can reassign / untag
 - [ ] My rewards: "My surveys" expand/collapse above the numbers; star rating generated from tagged surveys; big stars on My rewards + staff welcome back home; notification of manager tag
 - [ ] Rewards: most surveys (monthly) + Above and beyond (quarterly, $500 + 1 paid day off = 8h × training rate e.g. $15/hr = $120)
+
+## (d) to (g) and the rewards progress fix
+- [x] (e) reviews and surveys, Most surveys ($50 house credit, to confirm), Above and beyond ($500 + paid day)
+- [x] (f) mixed targets: own target per line, vs own target for people, mix target for stores
+- [x] (g) Ten guests, by name (every 10 named reviews), home feedback card (loved / opportunities), review platform links, Respond in a new tab, CSV import
+- [x] Reward rings: lower of shifts needed and spend vs bar; ramping colleagues shown, not ranked; shift summary on My rewards
+- [ ] push (still 403)
