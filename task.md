@@ -93,3 +93,44 @@ Progress
 Open
 - Standard library copy (shared/library) still has em dashes and is written around 1906; Studio flags literal "1906" items.
 - Optional: POS checks as their own group on /quizzes, history step on setup checklist, move parseHistory out of studio-client.tsx.
+
+## Request 2026-10-10 (c): targets, cash bonus, shift types, performance plan
+Decisions (user answered form + message):
+- Metric: average dollar sale per ticket = net sales ÷ tickets as printed. Headline target $78 a ticket.
+- Fairness by target, not by counting: lunch and dinner targets × full time and part time (veterans get big parties, so higher).
+  Gap fill: optional personal adjustment (+/− $) per person; bartenders keep 40% of their grid target.
+  Each report line snapshots the target that applied, so target changes never rewrite history. Person target = ticket weighted.
+- Only solo serving shifts count (not training others, being trained, other work, private events/buyouts, cut short under 3h).
+- At target (rolling 30 days, ≥100%) = non cash rewards. Cash: one flat $150 at ≥105% on the rolling 30 days ending month end.
+  Paid on the first payday after month end, at the latest 30 days after. Minimum 8 counted shifts (gap fill: also for non cash).
+- Conduct: written warning, performance plan or termination active at ANY point in a reward's period blocks EVERY reward for that period
+  (eligible again from the next full month / period).
+- Performance plan: manager logs plan shifts (on time, dress, no strike, duties, floor grade if graded, standards + measurable
+  improvement in the plan's focus areas). Manager picks mode: 10 total, 10 in a row, or average of last 10 ≥ 90%.
+  Graduation is signed off and resets the person to zero (strikes and write ups before that day stop counting).
+- Website switches to the same rules.
+Progress
+- [ ] shared rules (metrics.ts, program.ts)
+- [ ] schema + db:push
+- [ ] perf lib (counted lines, weighted target, rolling 30, conduct blocks)
+- [ ] conduct reset + ratings
+- [ ] rewards board rewrite
+- [ ] shift report: shift + type per line, target snapshot, CSV columns
+- [ ] stores targets grid, team employment + adjustment
+- [ ] reports/team/slow use counted lines
+- [ ] performance plan UI (write-up page) + conduct overview
+- [ ] seed + backfill demo orgs; Harbor House target
+- [ ] copy: rewards library, metrics, rewards page, docs
+- [ ] website
+- [ ] verify, commit
+
+## Request 2026-10-10 (d) — on top of (c), which is still in progress
+- [ ] Onboarding: "Resume now" link from onboarding items to the check/module; passing the linked quiz completes the item; banner on member page and staff home
+- [ ] Modules vs quizzes: every question answerable from its module; expand modules; add `see` section per question, audit script; no dashes in library copy touched; upsell target question to $78 per ticket
+- [ ] My rewards page for staff (/rewards for staff, /rewards/mine/:id for managers): where they stand per reward, qualified / close / on the way / held back; fun but elegant
+
+## Request 2026-10-10 (e): customer reviews + surveys + review rewards
+- [ ] Front page (home) "New customer feedback" card: expandable list, stars, text, date; managers tag named employee(s)
+- [ ] Auto tag: fuzzy match staff names in review text (misspellings, closest name); manager can reassign / untag
+- [ ] My rewards: "My surveys" expand/collapse above the numbers; star rating generated from tagged surveys; big stars on My rewards + staff welcome back home; notification of manager tag
+- [ ] Rewards: most surveys (monthly) + Above and beyond (quarterly, $500 + 1 paid day off = 8h × training rate e.g. $15/hr = $120)

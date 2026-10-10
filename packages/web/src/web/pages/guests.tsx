@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Pin, PinOff, Plus, Quote, Star, Trash2 } from "lucide-react";
+import { ArrowUpRight, Check, FileUp, Pin, PinOff, Plus, Quote, Star, Trash2 } from "lucide-react";
 import { Page, Loading, ErrorNote } from "../components/shell";
 import { useViewer } from "../components/viewer";
 import { Empty, Seg, Stat } from "../components/bits";
 import { SectionTitle } from "../components/program-bits";
 import { StoreTabs } from "./checklists";
-import { useCreateFeedback, useGuestFeedback, usePinFeedback, useRemoveFeedback } from "../queries/guests";
+import { useCreateFeedback, useGuestFeedback, usePinFeedback, useRemoveFeedback, useRespondFeedback } from "../queries/guests";
+import { PlatformConnections, ReviewImport } from "../components/review-import";
+import { THEME_LABEL } from "../../shared/reviews";
 import { useTeam } from "../queries/team";
 import { FEEDBACK_SOURCES } from "../../shared/program";
+import { HOW_LABEL, matchNames, soundsAboveBeyond } from "../../shared/name-match";
 import { ROLE_LABEL, isManagementRole } from "../../shared/domain";
 import { errMsg, shortDay } from "../lib/format";
 import { cn } from "../lib/utils";
@@ -18,6 +21,7 @@ type Feedback = NonNullable<ReturnType<typeof useGuestFeedback>["data"]>[number]
 export function QuoteCard({ f, canManage, compact }: { f: Feedback; canManage?: boolean; compact?: boolean }) {
   const pin = usePinFeedback();
   const remove = useRemoveFeedback();
+  const respond = useRespondFeedback();
   return (
     <figure className={cn("relative rounded-[2px] border p-5", f.pinnedToday ? "border-gold-deep/70 bg-gold/10" : "rule")}>
       <Quote className="absolute right-4 top-4 size-6 text-gold-deep/30" />
@@ -38,12 +42,28 @@ export function QuoteCard({ f, canManage, compact }: { f: Feedback; canManage?: 
             {f.memberNames[i]}
           </Link>
         ))}
-        {f.pinnedToday && <span className="chip border-gold-deep/60 text-gold-deep">Pinned to tonight's line-up</span>}
+        {f.pinnedToday && <span className="chip border-gold-deep/60 text-gold-deep">Pinned to tonight's line up</span>}
+        {f.tone === "opportunity" && <span className="chip border-oxblood/40 text-oxblood">Opportunity{f.themes.length ? ` · ${f.themes.map((t) => THEME_LABEL[t]).join(", ")}` : ""}</span>}
+        {f.respondedAt && (
+          <span className="inline-flex items-center gap-1 text-sage">
+            <Check className="size-3" /> Replied by {f.respondedByName}
+          </span>
+        )}
       </figcaption>
       {canManage && (
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
+          {f.respondUrl && !f.respondedAt && (
+            <a href={f.respondUrl} target="_blank" rel="noopener noreferrer" className={cn("btn !h-8 !px-3 !text-[12px]", f.tone === "opportunity" ? "btn-ink" : "btn-line")}>
+              Respond on {f.source} <ArrowUpRight className="size-3.5" />
+            </a>
+          )}
+          {f.respondUrl && (
+            <button className="btn btn-line !h-8 !px-3 !text-[12px]" disabled={respond.isPending} onClick={() => respond.mutate({ id: f.id, done: !f.respondedAt })}>
+              <Check className="size-3.5" /> {f.respondedAt ? "Undo replied" : "Mark replied"}
+            </button>
+          )}
           <button className="btn btn-line !h-8 !px-3 !text-[12px]" disabled={pin.isPending} onClick={() => pin.mutate({ id: f.id, pinned: !f.pinnedToday })}>
-            {f.pinnedToday ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />} {f.pinnedToday ? "Unpin" : "Pin to line-up"}
+            {f.pinnedToday ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />} {f.pinnedToday ? "Unpin" : "Pin to line up"}
           </button>
           <button
             className="btn btn-line !h-8 !px-3 !text-[12px] !text-oxblood"
@@ -64,6 +84,7 @@ export default function GuestsPage() {
   const v = useViewer();
   const q = useGuestFeedback(v.storeId);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [filter, setFilter] = useState<"all" | "named">("all");
   const rows = (q.data ?? []).filter((f) => filter === "all" || f.memberIds.length);
   const named = new Map<string, { name: string; n: number }>();
@@ -78,16 +99,22 @@ export default function GuestsPage() {
       title="Setting the standard"
       aside={
         v.isManager && (
-          <button className="btn btn-ink" onClick={() => setAdding((a) => !a)}>
-            <Plus className="size-4" /> {adding ? "Close" : "Add a guest quote"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn btn-line" onClick={() => setImporting((a) => !a)}>
+              <FileUp className="size-4" /> {importing ? "Close import" : "Import reviews"}
+            </button>
+            <button className="btn btn-ink" onClick={() => setAdding((a) => !a)}>
+              <Plus className="size-4" /> {adding ? "Close" : "Add a guest quote"}
+            </button>
+          </div>
         )
       }
     >
       <p className="-mt-3 mb-8 max-w-[64ch] font-display text-[19px] italic leading-snug text-ink-soft">
-        Always finding ways to go above and beyond. What guests say about us, by name, read aloud at line-up.
+        Always finding ways to go above and beyond. What guests say about us, by name, read aloud at line up.
       </p>
       {v.isManager && <StoreTabs />}
+      {importing && <ReviewImport storeId={v.storeId} onDone={() => setImporting(false)} />}
       {adding && <NewQuote onDone={() => setAdding(false)} />}
       {q.isLoading ? (
         <Loading />
@@ -123,11 +150,12 @@ export default function GuestsPage() {
               ) : (
                 <div className="text-[13px] text-ink-soft">Nobody named yet this month.</div>
               )}
-              <div className="mt-3 text-[12px] text-ink-soft">A quote naming someone counts toward Guest quote recognition and the peer-restaurant dinner.</div>
+              <div className="mt-3 text-[12px] text-ink-soft">A quote naming someone counts toward Guest quote recognition and the peer restaurant dinner. Every 10 where the guest used their name earns their pick of a Friday or Saturday section.</div>
             </div>
           </aside>
         </div>
       )}
+      {v.isManager && <PlatformConnections storeId={v.storeId} />}
     </Page>
   );
 }
@@ -144,8 +172,12 @@ function NewQuote({ onDone }: { onDone: () => void }) {
     receivedOn: v.me.today ?? new Date().toISOString().slice(0, 10),
     memberIds: [] as string[],
     pin: false,
+    aboveBeyond: false,
+    externalUrl: "",
   });
   const staff = (team.data ?? []).filter((m) => !isManagementRole(m.role));
+  // With nobody picked, show who the platform will tag on save so the manager can accept it or pick by hand.
+  const preview = f.memberIds.length || f.quote.length < 8 ? [] : matchNames(f.quote, staff);
   return (
     <form
       className="mb-10 rounded-[2px] border-2 border-ink p-5 md:p-7"
@@ -185,6 +217,11 @@ function NewQuote({ onDone }: { onDone: () => void }) {
         </div>
       </div>
       <div className="mt-4">
+        <span className="label">Link to the review (optional)</span>
+        <input aria-label="Link to the review" type="url" className="field" placeholder="Copy the review's share link from Google, Yelp or OpenTable" value={f.externalUrl} onChange={(e) => setF({ ...f, externalUrl: e.target.value })} />
+        <span className="mt-1 block text-[11.5px] text-ink-soft">With a link, Respond opens this exact review. Without one it opens the store's page on that platform.</span>
+      </div>
+      <div className="mt-4">
         <span className="label">What they said</span>
         <textarea aria-label="Quote" className="field !h-24 py-2" required minLength={8} value={f.quote} onChange={(e) => setF({ ...f, quote: e.target.value })} />
       </div>
@@ -205,10 +242,30 @@ function NewQuote({ onDone }: { onDone: () => void }) {
             );
           })}
         </div>
+        {preview.length > 0 && (
+          <div className="mt-3 rounded-[2px] border border-gold-deep/40 bg-gold/5 px-3 py-2 text-[12.5px]">
+            <span className="font-semibold">Will be tagged on save:</span>{" "}
+            {preview.map((p, i) => (
+              <span key={p.memberId}>
+                {i > 0 && ", "}
+                {p.name} <span className="text-ink-soft">({HOW_LABEL[p.how]} · “{p.word}”)</span>
+              </span>
+            ))}
+            <span className="text-ink-soft"> · pick names above to tag by hand instead.</span>
+          </div>
+        )}
+        {!f.memberIds.length && f.quote.length >= 8 && !preview.length && (
+          <div className="mt-3 text-[12.5px] text-ink-soft">No colleague's name found in the words yet. Pick someone above, or save it untagged.</div>
+        )}
       </div>
       <label className="mt-4 flex items-center gap-2 text-[13px]">
-        <input type="checkbox" aria-label="Pin to tonight's line-up" className="accent-[#1c1915]" checked={f.pin} onChange={(e) => setF({ ...f, pin: e.target.checked })} />
-        Pin to tonight's line-up (replaces today's pinned quote)
+        <input type="checkbox" aria-label="Above and beyond" className="accent-[#1c1915]" checked={f.aboveBeyond} onChange={(e) => setF({ ...f, aboveBeyond: e.target.checked })} />
+        Above and beyond (counts toward the quarterly $500 and paid day off)
+        {!f.aboveBeyond && soundsAboveBeyond(f.quote) && <span className="chip !border-gold-deep/50 !text-[11px] !text-gold-deep">Sounds like it</span>}
+      </label>
+      <label className="mt-2 flex items-center gap-2 text-[13px]">
+        <input type="checkbox" aria-label="Pin to tonight's line up" className="accent-[#1c1915]" checked={f.pin} onChange={(e) => setF({ ...f, pin: e.target.checked })} />
+        Pin to tonight's line up (replaces today's pinned quote)
       </label>
       {create.error && <div className="mt-2 text-[13px] text-oxblood">{errMsg(create.error)}</div>}
       <button className="btn btn-ink mt-4" disabled={create.isPending}>

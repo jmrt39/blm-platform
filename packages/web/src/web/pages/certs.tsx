@@ -106,7 +106,7 @@ export default function CertsPage() {
                           </td>
                         );
                       })}
-                      <td className="text-[12px]">{wine.length ? wine.map((w) => w.label).join(", ") : <span className="text-ink-soft">—</span>}</td>
+                      <td className="text-[12px]">{wine.length ? wine.map((w) => w.label).join(", ") : <span className="text-ink-soft">·</span>}</td>
                       <td className="r">
                         <button aria-label={`Record a certificate for ${r.name}`} className="text-ink-soft hover:text-ink" onClick={() => setRecording({ memberId: r.id, kind: "food_handler" })}>
                           <Plus className="size-4" />

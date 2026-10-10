@@ -154,7 +154,7 @@ function Board() {
                       <span className="figure">{r.program.floorAvg.toFixed(1)}</span>
                     </span>
                   ) : (
-                    <span className="text-ink-soft">—</span>
+                    <span className="text-ink-soft">·</span>
                   )}
                 </td>
                 <td className="r">
@@ -218,7 +218,7 @@ export function TrainingRecord({ memberId }: { memberId: string | null }) {
       <div className="mb-8 grid grid-cols-2 gap-6 md:grid-cols-4">
         <Stat label="Signed off" value={`${p.done}/${p.total}`} sub={pct(p.pct) + " of the library for " + ROLE_LABEL[d.member.role]} />
         <Stat label="Ready to sign" value={p.ready} tone={p.ready ? "gold" : undefined} sub="Ask a trainer to sign" />
-        <Stat label="Floor grade" value={p.floorAvg != null ? p.floorAvg.toFixed(1) : "—"} sub="Average of the last 3" />
+        <Stat label="Floor grade" value={p.floorAvg != null ? p.floorAvg.toFixed(1) : "·"} sub="Average of the last 3" />
         <Stat label="Checks passed" value={d.attempts.filter((a) => a.passed).length} sub={`${d.attempts.length} attempts`} />
       </div>
       {[...byCat.entries()].map(([cat, mods]) => (

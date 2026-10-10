@@ -36,7 +36,7 @@ export function StrikeDots({ n, className }: { n: number; className?: string }) 
 }
 
 export function StepChip({ step, className }: { step: Step | null | undefined; className?: string }) {
-  if (!step) return <span className={cn("text-[12px] text-ink-soft", className)}>—</span>;
+  if (!step) return <span className={cn("text-[12px] text-ink-soft", className)}>·</span>;
   return (
     <span
       className={cn(
@@ -53,7 +53,7 @@ export function StepChip({ step, className }: { step: Step | null | undefined; c
 }
 
 export function RatingFigure({ value, className }: { value: number | null | undefined; className?: string }) {
-  if (value == null) return <span className={cn("text-ink-soft", className)}>—</span>;
+  if (value == null) return <span className={cn("text-ink-soft", className)}>·</span>;
   return (
     <span className={cn("figure", value >= 80 ? "text-sage" : value >= 70 ? "text-ink" : value >= 60 ? "text-gold-deep" : "text-oxblood", className)}>{value}</span>
   );

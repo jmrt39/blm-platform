@@ -5,7 +5,7 @@ import { db } from "../database";
 import * as s from "../database/schema";
 import { assertStore, loadStore, managerBase, type Viewer } from "../lib/access";
 import { addDays, businessDate } from "../lib/time";
-import { currentStep, evaluateLadder, isStrike, windowEvents, windowStart } from "../lib/conduct";
+import { currentStep, evaluateLadder, isStrike, memberFrom, windowEvents, windowStart } from "../lib/conduct";
 import { isManagementRole } from "../../shared/domain";
 import {
   ARRIVALS,
@@ -69,13 +69,15 @@ export const lineups = {
       const ids = roster.map((r) => r.id);
       const from = windowStart();
       const ev = await windowEvents(ids, from);
+      const resets = ids.length ? await db.select({ id: s.members.id, conductResetOn: s.members.conductResetOn }).from(s.members).where(inArray(s.members.id, ids)) : [];
+      const fromOf = new Map(resets.map((r) => [r.id, memberFrom(r, from)]));
       const acts = ids.length ? await db.select().from(s.disciplinaryActions).where(inArray(s.disciplinaryActions.memberId, ids)) : [];
       const standing = Object.fromEntries(
         ids.map((id) => [
           id,
           {
-            strikes: ev.filter((e) => e.memberId === id && isStrike(e, from)).length,
-            step: currentStep(acts.filter((a) => a.memberId === id), from),
+            strikes: ev.filter((e) => e.memberId === id && isStrike(e, fromOf.get(id) ?? from)).length,
+            step: currentStep(acts.filter((a) => a.memberId === id), fromOf.get(id) ?? from),
           },
         ]),
       );

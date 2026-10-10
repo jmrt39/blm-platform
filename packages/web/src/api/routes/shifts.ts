@@ -4,6 +4,8 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "../database";
 import * as s from "../database/schema";
 import { loadStore, managerBase, viewerBase } from "../lib/access";
+import { lineTarget } from "../lib/perf";
+import { SHIFT_KINDS, targetGrid } from "../../shared/metrics";
 
 const line = z.object({
   memberId: z.string().nullish(),
@@ -14,6 +16,8 @@ const line = z.object({
   checks: z.number().int().min(0).max(5000).default(0),
   wineBottles: z.number().int().min(0).max(1000).default(0),
   desserts: z.number().int().min(0).max(5000).default(0),
+  shift: z.enum(["lunch", "dinner"]).default("dinner"),
+  kind: z.enum(SHIFT_KINDS).default("solo"),
 });
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -40,11 +44,12 @@ export const shifts = {
         .select()
         .from(s.shiftReports)
         .where(and(eq(s.shiftReports.storeId, store.id), eq(s.shiftReports.businessDate, input.date)));
-      if (!r) return { store: { id: store.id, name: store.name, number: store.number, ticketTarget: store.ticketTarget }, report: null };
+      const st = { id: store.id, name: store.name, number: store.number, ticketTarget: store.ticketTarget, grid: targetGrid(store) };
+      if (!r) return { store: st, report: null };
       const lines = await db.select().from(s.shiftReportLines).where(eq(s.shiftReportLines.reportId, r.id));
       lines.sort((a, b) => b.netSales - a.netSales);
       return {
-        store: { id: store.id, name: store.name, number: store.number, ticketTarget: store.ticketTarget },
+        store: st,
         report: { ...r, spt: r.checks ? r.netSales / r.checks : 0, lines },
       };
     }),
@@ -70,16 +75,22 @@ export const shifts = {
       const v = context.viewer;
       const store = await loadStore(v, input.storeId);
       const valid = await db
-        .select({ id: s.members.id })
+        .select({ id: s.members.id, employment: s.members.employment, targetAdjust: s.members.targetAdjust })
         .from(s.members)
         .where(eq(s.members.storeId, store.id));
       const ids = new Set(valid.map((m) => m.id));
+      const byId = new Map(valid.map((m) => [m.id, m]));
       for (const l of input.lines) if (l.memberId && !ids.has(l.memberId)) throw new ORPCError("BAD_REQUEST", { message: `${l.name} isn't on this store's team.` });
 
       const [prev] = await db
         .select({ id: s.shiftReports.id })
         .from(s.shiftReports)
         .where(and(eq(s.shiftReports.storeId, store.id), eq(s.shiftReports.businessDate, input.businessDate)));
+      // A night re-submitted keeps the targets it was first saved with: target changes never rewrite history.
+      const frozen = new Map<string, number>();
+      if (prev)
+        for (const l of await db.select().from(s.shiftReportLines).where(eq(s.shiftReportLines.reportId, prev.id)))
+          if (l.target != null) frozen.set(`${l.memberId ?? l.name}|${l.shift}|${l.role}`, l.target);
       if (prev) {
         await db.delete(s.shiftReportLines).where(eq(s.shiftReportLines.reportId, prev.id));
         await db.delete(s.shiftReports).where(eq(s.shiftReports.id, prev.id));
@@ -118,16 +129,20 @@ export const shifts = {
           checks: l.checks,
           wineBottles: l.wineBottles,
           desserts: l.desserts,
+          shift: l.shift,
+          kind: l.kind,
+          target: frozen.get(`${l.memberId ?? l.name}|${l.shift}|${l.role}`) ?? lineTarget(store, l.memberId ? byId.get(l.memberId) : null, l.role, l.shift),
         })),
       );
       return { id, replaced: !!prev, netSales, covers, checks, spt: checks ? netSales / checks : 0 };
     }),
 
   roster: viewerBase.input(z.object({ storeId: z.string() })).handler(async ({ input, context }) => {
-    await loadStore(context.viewer, input.storeId);
-    return db
-      .select({ id: s.members.id, name: s.members.name, role: s.members.role, initials: s.members.initials })
+    const store = await loadStore(context.viewer, input.storeId);
+    const rows = await db
+      .select({ id: s.members.id, name: s.members.name, role: s.members.role, initials: s.members.initials, employment: s.members.employment, targetAdjust: s.members.targetAdjust })
       .from(s.members)
       .where(and(eq(s.members.storeId, input.storeId), eq(s.members.status, "active")));
+    return rows.map((m) => ({ ...m, targets: { lunch: lineTarget(store, m, m.role, "lunch"), dinner: lineTarget(store, m, m.role, "dinner") } }));
   }),
 };

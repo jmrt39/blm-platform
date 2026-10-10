@@ -1,8 +1,8 @@
-import { targetForRole } from "../../shared/metrics";
 import { and, eq, gte, inArray, lt, ne } from "drizzle-orm";
 import { db } from "../database";
 import * as s from "../database/schema";
 import { addDays, businessDate } from "./time";
+import { perfLines } from "./perf";
 import { CONDUCT_WEIGHT, STRIKE_WINDOW_DAYS, stepForStrikes, stepRank, type Step } from "../../shared/conduct";
 import { isManagementRole } from "../../shared/domain";
 
@@ -10,6 +10,8 @@ const TZ = "America/New_York";
 export const today = () => businessDate(TZ);
 /** First business date still inside the rolling strike window. */
 export const windowStart = (day = today()) => addDays(day, -(STRIKE_WINDOW_DAYS - 1));
+/** A person's own window: the rolling 90 days, or since they graduated from a performance plan if that is later. */
+export const memberFrom = (m: { conductResetOn?: string | null }, from = windowStart()) => (m.conductResetOn && m.conductResetOn > from ? m.conductResetOn : from);
 
 type Event = typeof s.conductEvents.$inferSelect;
 type Action = typeof s.disciplinaryActions.$inferSelect;
@@ -44,7 +46,7 @@ export function currentStep(actions: Action[], from = windowStart()): Step | nul
 export async function evaluateLadder(memberId: string): Promise<Action | null> {
   const [m] = await db.select().from(s.members).where(eq(s.members.id, memberId));
   if (!m) return null;
-  const from = windowStart();
+  const from = memberFrom(m);
   const events = (await windowEvents([memberId], from)).filter((e) => isStrike(e, from));
   const strikes = events.length;
   const target = stepForStrikes(strikes);
@@ -95,6 +97,10 @@ export type Rating = {
   strikes: number;
   parts: { checkAvg: number | null; sales: number | null; checklists: number };
   spt30: number | null;
+  /** Ticket weighted target across the same solo shifts. */
+  target30: number | null;
+  /** Solo serving shifts in the last 30 days. */
+  shifts30: number;
 };
 
 const clamp = (n: number) => Math.max(0, Math.min(100, n));
@@ -102,7 +108,8 @@ const SELLERS = ["server", "sommelier", "bartender"];
 
 /**
  * Overall rating, 0–100: 75% performance, 25% conduct.
- * Performance (sellers): check average vs store target 50%, sales per shift vs peers 25%, checklists 25%.
+ * Performance (sellers): spend per ticket vs their own target 50%, sales per shift vs peers 25%, checklists 25%.
+ * Sales parts use solo serving shifts only, each against the target that applied to it.
  * Performance (support staff): checklists. Managers: store's on-time checklist rate.
  * Conduct: 100, minus 20 for each strike in the last 90 days.
  */
@@ -116,15 +123,9 @@ export async function computeRatings(storeIds: string[]) {
     .from(s.members)
     .where(and(inArray(s.members.storeId, storeIds), eq(s.members.status, "active")));
   if (!members.length) return out;
-  const stores = await db.select().from(s.stores).where(inArray(s.stores.id, storeIds));
-  const target = new Map(stores.map((x) => [x.id, x.ticketTarget]));
-
-  const lines = await db
-    .select({ memberId: s.shiftReportLines.memberId, role: s.shiftReportLines.role, sales: s.shiftReportLines.netSales, checks: s.shiftReportLines.checks, storeId: s.shiftReports.storeId })
-    .from(s.shiftReportLines)
-    .innerJoin(s.shiftReports, eq(s.shiftReports.id, s.shiftReportLines.reportId))
-    .where(and(inArray(s.shiftReports.storeId, storeIds), gte(s.shiftReports.businessDate, since)));
-  const perf = new Map<string, { sales: number; checks: number; shifts: number }>();
+  // Only solo serving shifts count, each against the target that applied to it.
+  const lines = (await perfLines(storeIds, since, day)).filter((l) => l.counted);
+  const perf = new Map<string, { sales: number; checks: number; shifts: number; tw: number }>();
   const peer = new Map<string, { sales: number; shifts: number }>(); // store|bar-or-floor
   for (const l of lines) {
     const k = `${l.storeId}|${l.role === "bartender" ? "bar" : "floor"}`;
@@ -133,10 +134,11 @@ export async function computeRatings(storeIds: string[]) {
     pp.shifts += 1;
     peer.set(k, pp);
     if (!l.memberId) continue;
-    const p = perf.get(l.memberId) ?? { sales: 0, checks: 0, shifts: 0 };
+    const p = perf.get(l.memberId) ?? { sales: 0, checks: 0, shifts: 0, tw: 0 };
     p.sales += l.sales;
     p.checks += l.checks;
     p.shifts += 1;
+    p.tw += l.target * l.checks;
     perf.set(l.memberId, p);
   }
 
@@ -165,7 +167,7 @@ export async function computeRatings(storeIds: string[]) {
 
   const from = windowStart(day);
   const ev = await db
-    .select({ memberId: s.conductEvents.memberId })
+    .select({ memberId: s.conductEvents.memberId, date: s.conductEvents.businessDate })
     .from(s.conductEvents)
     .where(
       and(
@@ -175,7 +177,8 @@ export async function computeRatings(storeIds: string[]) {
       ),
     );
   const strikes = new Map<string, number>();
-  for (const e of ev) strikes.set(e.memberId, (strikes.get(e.memberId) ?? 0) + 1);
+  const fromOf = new Map(members.map((m) => [m.id, memberFrom(m, from)]));
+  for (const e of ev) if (e.date >= (fromOf.get(e.memberId) ?? from)) strikes.set(e.memberId, (strikes.get(e.memberId) ?? 0) + 1);
 
   for (const m of members) {
     const st = strikes.get(m.id) ?? 0;
@@ -192,8 +195,7 @@ export async function computeRatings(storeIds: string[]) {
     } else {
       checklists = clamp(70 + 3 * (initialled.get(m.id) ?? 0));
       if (SELLERS.includes(m.role) && p && p.checks) {
-        const t = target.get(m.storeId) ?? 190;
-        const ratio = p.sales / p.checks / targetForRole(m.role, t);
+        const ratio = p.sales / p.checks / (p.tw / p.checks);
         checkAvg = clamp(80 + (ratio - 1) * 250);
         const pr = peer.get(`${m.storeId}|${m.role === "bartender" ? "bar" : "floor"}`);
         const peerAvg = pr && pr.shifts ? pr.sales / pr.shifts : 0;
@@ -209,6 +211,8 @@ export async function computeRatings(storeIds: string[]) {
       strikes: st,
       parts: { checkAvg: checkAvg == null ? null : Math.round(checkAvg), sales: sales == null ? null : Math.round(sales), checklists: Math.round(checklists) },
       spt30: p && p.checks ? p.sales / p.checks : null,
+      target30: p && p.checks ? Math.round((p.tw / p.checks) * 100) / 100 : null,
+      shifts30: p?.shifts ?? 0,
     });
   }
   return out;

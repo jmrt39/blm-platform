@@ -523,7 +523,7 @@ function HistoryImport({ store }: { store: Build["stores"][number] }) {
         <div className="grid grid-cols-3 gap-4 border border-paper-line bg-paper-2/40 p-4">
           <Stat label="Days" value={num(parsed.rows.length)} sub={parsed.rows.length ? `${parsed.rows[0]!.date} to ${parsed.rows[parsed.rows.length - 1]!.date}` : undefined} />
           <Stat label="Net sales" value={money(totals.sales)} />
-          <Stat label="Spend per ticket" value={totals.tickets ? money(totals.sales / totals.tickets, 2) : "—"} sub={parsed.skipped ? `${parsed.skipped} rows skipped` : undefined} />
+          <Stat label="Spend per ticket" value={totals.tickets ? money(totals.sales / totals.tickets, 2) : "·"} sub={parsed.skipped ? `${parsed.skipped} rows skipped` : undefined} />
         </div>
       )}
       {err && <div className="text-[13px] text-oxblood">{err}</div>}

@@ -43,7 +43,20 @@ export type Rubric = {
   repeat?: "weekly" | "monthly";
 };
 
-export type Question = { id: string; q: string; choices: string[]; answer: number; why: string };
+export type Question = {
+  id: string;
+  q: string;
+  choices: string[];
+  answer: number;
+  why: string;
+  /** The module section heading that teaches the answer. */
+  see?: string;
+};
+
+/** Anchor id for a module section, so a missed question can link back to where it is taught. */
+export function sectionId(h: string) {
+  return `s-${h.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+}
 export type Quiz = {
   slug: string;
   title: string;
@@ -134,16 +147,3 @@ export function monthOf(date: string) {
   return { label, key: `${y}-${String(m).padStart(2, "0")}`, start: `${y}-${String(m).padStart(2, "0")}-01` };
 }
 
-/** Monthly spend per ticket bonus steps above the target. Bartender tickets are smaller, so their steps are too. */
-export function bonusSteps(role: string) {
-  return role === "bartender" ? [5, 10] : [12, 25];
-}
-
-/** Monthly spend per ticket bonus tiers relative to the person's target. */
-export function adsBonus(spt: number, target: number, role = "server") {
-  const [a, b] = bonusSteps(role);
-  if (spt >= target + b!) return 250;
-  if (spt >= target + a!) return 200;
-  if (spt >= target) return 150;
-  return 0;
-}

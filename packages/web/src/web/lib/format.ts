@@ -2,7 +2,7 @@ export const money = (n: number, digits = 0) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: digits, minimumFractionDigits: digits });
 export const money2 = (n: number) => money(n, 2);
 export const num = (n: number) => n.toLocaleString("en-US");
-export const pct = (n: number | null | undefined, d = 0) => (n == null ? "—" : `${(n * 100).toFixed(d)}%`);
+export const pct = (n: number | null | undefined, d = 0) => (n == null ? "·" : `${(n * 100).toFixed(d)}%`);
 
 export function timeOf(d: Date | string | number | null | undefined, tz = "America/New_York") {
   if (!d) return "";

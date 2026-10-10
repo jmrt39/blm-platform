@@ -10,6 +10,7 @@ import { useRange } from "../queries/reports";
 import { LastYearLine } from "../components/last-year";
 import { money, money2, num, pct, shortDay } from "../lib/format";
 import { ROLE_LABEL } from "../../shared/domain";
+import { MIX_RULE, pctOfTarget } from "../../shared/metrics";
 import { cn } from "../lib/utils";
 import { motion } from "motion/react";
 
@@ -89,7 +90,7 @@ export default function ReportsPage() {
               tone={r.totals.spt >= r.totals.ticketTarget ? "good" : "bad"}
               sub={
                 <>
-                  Target {money2(r.totals.ticketTarget)} · {num(r.totals.checks)} tickets {r.comparable && (
+                  Mix target {money2(r.totals.ticketTarget)} · {num(r.totals.checks)} tickets {r.comparable && (
                     <>
                       {" · "}
                       <Delta cur={r.totals.spt} prev={r.previous.spt} fmt={(x) => money2(x)} />
@@ -121,7 +122,7 @@ export default function ReportsPage() {
               <SalesBars series={r.series} />
               <div className="mb-2 mt-8 flex items-baseline justify-between">
                 <div className="eyebrow">Spend per ticket by night</div>
-                <div className="text-[11.5px] text-ink-soft">dashed = target</div>
+                <div className="text-[11.5px] text-ink-soft">dashed = mix target</div>
               </div>
               <Spark data={r.series.map((s) => s.spt)} target={r.totals.ticketTarget} height={70} />
             </div>
@@ -132,21 +133,23 @@ export default function ReportsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-gold">Top two</div>
-                      <div className="figure text-[30px]">{money2(r.gap.topSpt)}</div>
+                      <div className="figure text-[30px]">{pctOfTarget(r.gap.topVs)}</div>
+                      <div className="text-[11px] text-[#8f877b]">of own target · {money2(r.gap.topSpt)} a ticket</div>
                       <div className="text-[11.5px] text-[#b9b0a3]">{r.gap.top.map((p) => p.name).join(" · ")}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-gold">Priority coaching</div>
-                      <div className="figure text-[30px]">{money2(r.gap.bottomSpt)}</div>
+                      <div className="figure text-[30px]">{pctOfTarget(r.gap.bottomVs)}</div>
+                      <div className="text-[11px] text-[#8f877b]">of own target · {money2(r.gap.bottomSpt)} a ticket</div>
                       <div className="text-[11.5px] text-[#b9b0a3]">{r.gap.bottom.map((p) => p.name).join(" · ")}</div>
                     </div>
                   </div>
                   <div className="mt-5 border-t border-noir-line pt-4 text-[13px] text-[#b9b0a3]">
-                    A <span className="font-semibold text-gold">{money2(r.gap.gap)}</span> gap per ticket ({money2(r.gap.topSpt)} − {money2(r.gap.bottomSpt)}). Modeled annual sales opportunity if half is closed:{" "}
+                    A <span className="font-semibold text-gold">{money2(r.gap.gap)}</span> gap per ticket: {Math.max(0, Math.round((r.gap.topVs - r.gap.bottomVs) * 100))} points of target between the two pairs, priced at the priority pair's own mix target of {money2(r.gap.bottomTarget)}. Modeled annual sales opportunity if half is closed:{" "}
                     <span className="figure text-[20px] text-gold">{money(r.gap.annualHalfGap)}</span>
                     <HowCalculated metric="opportunity" dark />
                     <div className="mt-1 text-[11px] text-[#8f877b]">
-                      Not verified loss or guaranteed improvement. {r.gap.ramping.length > 0 && <>Ramping, not ranked: {r.gap.ramping.map((p) => `${p.name} (day ${p.tenureDays})`).join(", ")}.</>}
+                      Ranked on percentage of own target, so lunch, dinner, part and full time compare fairly. Not verified loss or guaranteed improvement. {r.gap.ramping.length > 0 && <>Ramping, not ranked: {r.gap.ramping.map((p) => `${p.name} (day ${p.tenureDays})`).join(", ")}.</>}
                     </div>
                   </div>
                 </div>
@@ -172,7 +175,8 @@ export default function ReportsPage() {
                       <th className="r">Net sales</th>
                       <th className="r">Tickets</th>
                       <th className="r">Spend / ticket</th>
-                      <th className="r">Target</th>
+                      <th className="r">Mix target</th>
+                      <th className="r">vs mix</th>
                       <th className="r">Gap / ticket</th>
                       <th className="r">Modeled opportunity / yr</th>
                       <th className="r">Leakage</th>
@@ -190,9 +194,13 @@ export default function ReportsPage() {
                         <td className="r figure text-[16px]">{money(s.sales)}</td>
                         <td className="r">{num(s.checks)}</td>
                         <td className={cn("r font-semibold", s.spt >= s.ticketTarget ? "text-sage" : "text-oxblood")}>{money2(s.spt)}</td>
-                        <td className="r text-ink-soft">{money2(s.ticketTarget)}</td>
-                        <td className="r">{s.gap ? money2(s.gap.gap) : "—"}</td>
-                        <td className="r">{s.gap ? money(s.gap.annualHalfGap) : "—"}</td>
+                        <td className="r text-ink-soft">
+                          {money2(s.ticketTarget)}
+                          {Math.abs(s.ticketTarget - s.headlineTarget) >= 0.01 && <div className="text-[10.5px]">headline {money2(s.headlineTarget)}</div>}
+                        </td>
+                        <td className={cn("r font-semibold", s.vs == null ? "text-ink-soft" : s.vs >= 1 ? "text-sage" : "text-oxblood")}>{pctOfTarget(s.vs)}</td>
+                        <td className="r">{s.gap ? money2(s.gap.gap) : "·"}</td>
+                        <td className="r">{s.gap ? money(s.gap.annualHalfGap) : "·"}</td>
                         <td className="r">{pct(s.leakageRate, 1)}</td>
                         <td className="r">
                           <div className="ml-auto flex w-28 items-center gap-2">
@@ -210,7 +218,7 @@ export default function ReportsPage() {
 
           <div className="border-t rule py-9">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-              <div className="eyebrow">Leaderboard · server spend per ticket</div>
+              <div className="eyebrow">Leaderboard · spend per ticket vs own target</div>
               <Seg
                 value={lbRole}
                 onChange={setLbRole}
@@ -221,6 +229,7 @@ export default function ReportsPage() {
                 ]}
               />
             </div>
+            <p className="mb-3 max-w-3xl text-[12.5px] text-ink-soft">{MIX_RULE}</p>
             <div className="overflow-x-auto">
               <table className="tbl">
                 <thead>
@@ -232,6 +241,8 @@ export default function ReportsPage() {
                     <th className="r">Tickets</th>
                     <th className="r">Sales</th>
                     <th className="r">Spend / ticket</th>
+                    <th className="r">Own target</th>
+                    <th className="r">vs own target</th>
                     <th className="r">Wine / 100</th>
                     <th className="r">Dessert attach</th>
                   </tr>
@@ -239,10 +250,11 @@ export default function ReportsPage() {
                 <tbody>
                   {r.leaderboard
                     .filter((p) => (lbRole === "all" ? true : lbRole === "bar" ? p.role === "bartender" : p.role === "server" || p.role === "sommelier"))
-                    .sort((a, b) => Number(a.ramping) - Number(b.ramping) || b.spt - a.spt)
+                    .sort((a, b) => Number(a.ramping) - Number(b.ramping) || (b.vs ?? 0) - (a.vs ?? 0) || b.spt - a.spt)
                     .map((p, _i, arr) => {
                       const rank = p.ramping ? null : arr.filter((x) => !x.ramping).indexOf(p) + 1;
-                      const tgt = r.stores.find((s) => s.id === p.storeId)?.ticketTarget ?? r.totals.ticketTarget;
+                      const tgt = p.target ?? r.stores.find((s) => s.id === p.storeId)?.ticketTarget ?? r.totals.ticketTarget;
+                      const judged = p.role !== "bartender" && !p.ramping;
                       return (
                         <tr key={p.key}>
                           <td className="figure text-[16px] text-gold-deep">{rank ?? <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink-soft">New</span>}</td>
@@ -261,7 +273,9 @@ export default function ReportsPage() {
                           <td className="r">{p.shifts}</td>
                           <td className="r">{num(p.checks)}</td>
                           <td className="r">{money(p.sales)}</td>
-                          <td className={cn("r font-semibold", p.role !== "bartender" && !p.ramping && (p.spt >= tgt ? "text-sage" : "text-oxblood"))}>{money2(p.spt)}</td>
+                          <td className="r">{money2(p.spt)}</td>
+                          <td className="r text-ink-soft">{money2(tgt)}</td>
+                          <td className={cn("r font-semibold", judged && ((p.vs ?? 0) >= 1 ? "text-sage" : "text-oxblood"))}>{pctOfTarget(p.vs)}</td>
                           <td className="r">{p.winePer100.toFixed(1)}</td>
                           <td className="r">{pct(p.dessertAttach)}</td>
                         </tr>

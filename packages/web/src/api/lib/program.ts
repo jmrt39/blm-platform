@@ -4,11 +4,12 @@ import { db } from "../database";
 import * as s from "../database/schema";
 import { addDays, daysBetween } from "./time";
 import { computeRatings } from "./conduct";
-import { adsBonus, CERT_KINDS, GRADE_PASS, moduleNeeds, monthOf, quarterOf, requiredCerts, type CertKind, type ModuleStatus } from "../../shared/program";
+import { CERT_KINDS, GRADE_PASS, moduleNeeds, monthOf, quarterOf, requiredCerts, type CertKind, type ModuleStatus } from "../../shared/program";
 import type { RewardKey } from "../../shared/library/rewards";
 import type { LibraryIndex } from "../../shared/library/standard";
 import { isManagementRole } from "../../shared/domain";
-import { targetForRole } from "../../shared/metrics";
+import { CASH_BONUS, CASH_OVER, MIN_SHIFTS, RAMP_DAYS, ROLLING_DAYS, cashBonus } from "../../shared/metrics";
+import { blockIn, blockingActions, perfBy, perfLines, rollingFrom, standing, type Standing } from "./perf";
 
 type Member = typeof s.members.$inferSelect;
 
@@ -155,25 +156,6 @@ export async function certsFor(members: Pick<Member, "id" | "role">[], today: st
   return out;
 }
 
-/** Sales per member per date range, from shift report lines. */
-async function salesBy(storeId: string, from: string, to: string) {
-  const rows = await db
-    .select({ memberId: s.shiftReportLines.memberId, sales: s.shiftReportLines.netSales, checks: s.shiftReportLines.checks, date: s.shiftReports.businessDate })
-    .from(s.shiftReportLines)
-    .innerJoin(s.shiftReports, eq(s.shiftReports.id, s.shiftReportLines.reportId))
-    .where(and(eq(s.shiftReports.storeId, storeId), gte(s.shiftReports.businessDate, from)));
-  const m = new Map<string, { sales: number; checks: number; shifts: number }>();
-  for (const r of rows) {
-    if (!r.memberId || r.date > to) continue;
-    const p = m.get(r.memberId) ?? { sales: 0, checks: 0, shifts: 0 };
-    p.sales += r.sales;
-    p.checks += r.checks;
-    p.shifts += 1;
-    m.set(r.memberId, p);
-  }
-  return m;
-}
-
 export type RewardEntry = {
   memberId: string;
   name: string;
@@ -183,33 +165,50 @@ export type RewardEntry = {
   eligible: boolean;
   amount?: number;
   note?: string;
+  /** Held back by a written warning, performance plan or termination in the period. */
+  blocked?: boolean;
+  /** How far along they are, 1 = there. Drives the ring on My rewards. */
+  progress?: number | null;
+  /** What it takes from here, in one line, written to the person. */
+  next?: string;
+  /** Place in the store among those not held back, 1 = leading. */
+  rank?: number;
+  /** For rewards decided on a closed period: how the current period is going. */
+  live?: string;
+  /** For milestone rewards, the period this person's award is recorded against (e.g. "named-10"). */
+  period?: string;
 };
 
 export type RewardBoard = {
   key: RewardKey;
   period: { key: string; label: string };
+  /** How the period is judged, in one line. */
+  basis: string;
   entries: RewardEntry[];
   awarded: { memberId: string; memberName: string; amount: number | null; awardedByName: string; awardedAt: number; note: string }[];
 };
 
 const SELLERS = ["server", "sommelier", "bartender"];
-const targetFor = targetForRole;
-const ads = (p?: { sales: number; checks: number }) => (p && p.checks ? p.sales / p.checks : null);
+const fmt = (n: number | null) => (n == null ? "none" : `$${n.toFixed(2)}`);
+const pctOf = (p: { pct: number | null }) => (p.pct == null ? "" : ` (${Math.round(p.pct * 100)}%)`);
+const short = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-/** Who is eligible — or leading — for each of the eight rewards at one store. */
+/** Who is eligible, or leading, for each reward at one store. Only solo serving shifts count, each against its own target. */
 export async function rewardsBoard(lib: LibraryIndex, store: typeof s.stores.$inferSelect, today: string): Promise<RewardBoard[]> {
   const members = (
     await db.select().from(s.members).where(and(eq(s.members.storeId, store.id), eq(s.members.status, "active")))
   ).filter((m) => !isManagementRole(m.role));
   const q = quarterOf(today);
   const month = monthOf(today);
-  const lastMonth = monthOf(addDays(month.start, -1));
+  const lastEnd = addDays(month.start, -1);
+  const lastMonth = monthOf(lastEnd);
   const year = { key: today.slice(0, 4), label: today.slice(0, 4), start: `${today.slice(0, 4)}-01-01` };
+  const lastFrom = rollingFrom(lastEnd);
+  const nowFrom = rollingFrom(today);
+  const linesFrom = [q.start, lastFrom, lastMonth.start].sort()[0]!;
 
-  const [qSales, lastSales, mtdSales, feedback, grades, program, ratings, awards, somm] = await Promise.all([
-    salesBy(store.id, q.start, today),
-    salesBy(store.id, lastMonth.start, addDays(month.start, -1)),
-    salesBy(store.id, month.start, today),
+  const [lines, feedback, grades, program, ratings, awards, somm, blocking] = await Promise.all([
+    perfLines([store.id], linesFrom, today),
     db.select().from(s.guestFeedback).where(and(eq(s.guestFeedback.storeId, store.id), gte(s.guestFeedback.receivedOn, q.start < lastMonth.start ? q.start : lastMonth.start))),
     db.select().from(s.grades).where(and(eq(s.grades.storeId, store.id), eq(s.grades.rubric, lib.floorRubric?.slug ?? "floor-service"), gte(s.grades.businessDate, q.start))),
     programFor(lib, members),
@@ -219,31 +218,69 @@ export async function rewardsBoard(lib: LibraryIndex, store: typeof s.stores.$in
       .select({ memberId: s.quizAttempts.memberId, score: s.quizAttempts.score })
       .from(s.quizAttempts)
       .where(and(eq(s.quizAttempts.storeId, store.id), eq(s.quizAttempts.quiz, "q-somm-challenge"))),
+    blockingActions(members.map((m) => m.id)),
   ]);
+  const qPerf = perfBy(lines, q.start, today);
+  const lastPerf = perfBy(lines, lastFrom, lastEnd);
+  const nowPerf = perfBy(lines, nowFrom, today);
+  // The quarter needs the 8 shift minimum for each month it has run so far.
+  const qMonths = Number(today.slice(5, 7)) - Number(q.start.slice(5, 7)) + 1;
+  const qMin = MIN_SHIFTS * qMonths;
+
   const quotesIn = (id: string, from: string) => feedback.filter((f) => f.receivedOn >= from && f.memberIds.includes(id)).length;
   const sellers = members.filter((m) => SELLERS.includes(m.role));
-  const T = store.ticketTarget;
-  const fmt = (n: number | null) => (n == null ? "—" : `$${n.toFixed(2)}`);
   const allSigned = (id: string) => {
     const p = program.get(id);
     return !!p && p.total > 0 && p.done === p.total;
   };
+  const blockOf = (m: (typeof members)[number], from: string, to: string) => blockIn(blocking.get(m.id) ?? [], m.conductResetOn, from, to);
+  /** Apply the conduct block: nobody blocked is eligible, whatever the numbers say. */
+  const gate = (m: (typeof members)[number], e: RewardEntry, from: string, to: string): RewardEntry => {
+    const b = blockOf(m, from, to);
+    return b ? { ...e, eligible: false, amount: 0, blocked: true, note: b.reason } : e;
+  };
+  const shiftsNote = (st: Standing, min: number) => (st.shifts >= min ? undefined : `${st.shifts} of ${min} solo shifts so far`);
+  /**
+   * How far along someone really is: the lower of their shifts against what the reward needs and their
+   * spend per ticket against the bar. A strong first week is a strong first week, not 98% of a quarter.
+   */
+  const along = (st: Standing, shiftsNeeded: number, bar = 1) => {
+    if (!st.shifts || st.pct == null) return 0;
+    return Math.max(0, Math.min(1, st.shifts / shiftsNeeded, st.pct / bar));
+  };
+  /** Inside the first 30 days on the date given: shown, never ranked against people with a full month on the floor. */
+  const rampingOn = (m: (typeof members)[number], date: string) => daysBetween(m.hireDate, date) < RAMP_DAYS;
+  const rampNote = (m: (typeof members)[number]) => `Ramping: ranks from ${short(addDays(m.hireDate, RAMP_DAYS))}, after a full month on the floor`;
+  /** The whole quarter's shift minimum, so progress builds through the quarter instead of starting near full. */
+  const qFull = MIN_SHIFTS * 3;
+  const lmName = lastMonth.label.split(" ")[0];
+  const thisName = month.label.split(" ")[0];
 
-  const board = (key: RewardKey, period: { key: string; label: string }, entries: RewardEntry[]): RewardBoard => ({
+  const board = (key: RewardKey, period: { key: string; label: string }, basis: string, entries: RewardEntry[]): RewardBoard => ({
     key,
     period: { key: period.key, label: period.label },
-    entries,
+    basis,
+    entries: ranked(entries),
     awarded: awards
       .filter((a) => a.reward === key && a.period === period.key)
       .map((a) => ({ memberId: a.memberId, memberName: a.memberName, amount: a.amount, awardedByName: a.awardedByName, awardedAt: a.awardedAt.getTime(), note: a.note })),
   });
-  const sortDesc = (e: RewardEntry[]) => e.sort((a, b) => (b.value ?? -1) - (a.value ?? -1));
+  /** Rank by value among those not held back; ties share a place. */
+  const ranked = (e: RewardEntry[]) => {
+    const open = e.filter((x) => !x.blocked && x.value != null);
+    return e.map((x) => (x.blocked || x.value == null ? x : { ...x, rank: 1 + open.filter((o) => (o.value ?? 0) > (x.value ?? 0)).length }));
+  };
+  const toGo = (st: Standing) => (st.spt != null && st.target != null && st.spt < st.target ? `$${(st.target - st.spt).toFixed(2)} a ticket more to reach your target` : null);
+  const sortDesc = (e: RewardEntry[]) => e.sort((a, b) => Number(!!a.blocked) - Number(!!b.blocked) || (b.value ?? -1) - (a.value ?? -1));
+  const vs = (p: Standing) => `${fmt(p.spt)} vs ${fmt(p.target)}${pctOf(p)} · ${p.shifts} solo shift${p.shifts === 1 ? "" : "s"}`;
 
   const dayOff = sortDesc(
     sellers.map((m) => {
-      const v = ads(qSales.get(m.id));
-      const t = targetFor(m.role, T);
-      return { memberId: m.id, name: m.name, role: m.role, value: v, metric: `${fmt(v)} vs $${t} target`, eligible: v != null && v >= t };
+      const st = standing(qPerf.get(m.id), qMin);
+      const next = st.atTarget
+        ? `On target so far. ${Math.max(0, qFull - st.shifts)} more solo shifts at target to finish the quarter.`
+        : (toGo(st) ?? `${Math.max(0, qMin - st.shifts)} more solo shifts to count`);
+      return gate(m, { memberId: m.id, name: m.name, role: m.role, value: st.pct, metric: vs(st), eligible: st.atTarget, note: shiftsNote(st, qMin), progress: along(st, qFull), next }, q.start, today);
     }),
   );
 
@@ -251,26 +288,45 @@ export async function rewardsBoard(lib: LibraryIndex, store: typeof s.stores.$in
     members
       .map((m) => {
         const n = quotesIn(m.id, month.start);
-        return { memberId: m.id, name: m.name, role: m.role, value: n, metric: `${n} guest quote${n === 1 ? "" : "s"} this month`, eligible: n > 0 };
-      })
-      .filter((e) => e.value > 0),
+        return gate(
+          m,
+          { memberId: m.id, name: m.name, role: m.role, value: n, metric: `${n} guest quote${n === 1 ? "" : "s"} this month`, eligible: n > 0, progress: n > 0 ? 1 : 0, next: n > 0 ? "Your quote can be read aloud at line up." : "Be the name a guest remembers this month." },
+          month.start,
+          today,
+        );
+      }),
   );
 
+  const payBy = addDays(lastEnd, 30);
   const bonus = sortDesc(
     sellers.map((m) => {
-      const t = targetFor(m.role, T);
-      const v = ads(lastSales.get(m.id));
-      const live = ads(mtdSales.get(m.id));
-      const amount = v == null ? 0 : adsBonus(v, t, m.role);
-      return {
+      const st = standing(lastPerf.get(m.id));
+      const live = standing(nowPerf.get(m.id));
+      const amount = st.enough && st.spt != null && st.target ? cashBonus(st.spt, st.target) : 0;
+      const e: RewardEntry = {
         memberId: m.id,
         name: m.name,
         role: m.role,
-        value: v,
-        metric: `${fmt(v)} in ${lastMonth.label.split(" ")[0]} · ${fmt(live)} so far this month`,
+        value: st.pct,
+        metric: `${vs(st)} · last 30 days now ${fmt(live.spt)}${pctOf(live)}`,
         eligible: amount > 0,
         amount,
+        note:
+          amount > 0
+            ? `Pay on the first payday after ${short(lastEnd)}, by ${short(payBy)} at the latest`
+            : st.shifts < MIN_SHIFTS
+              ? `${lmName}: ${st.shifts} of ${MIN_SHIFTS} solo shifts, so ${lmName} doesn't pay`
+              : undefined,
+        progress: along(live, MIN_SHIFTS, 1 + CASH_OVER),
+        next:
+          live.spt != null && live.target != null
+            ? live.pct! >= 1 + CASH_OVER
+              ? `Over ${Math.round((1 + CASH_OVER) * 100)}% on the last 30 days. Hold it to the end of the month.`
+              : `${thisName}: $${(live.target * (1 + CASH_OVER) - live.spt).toFixed(2)} a ticket more to reach ${Math.round((1 + CASH_OVER) * 100)}% and $${CASH_BONUS}${live.shifts < MIN_SHIFTS ? `, and ${MIN_SHIFTS - live.shifts} more solo shifts` : ""}`
+            : `Work ${MIN_SHIFTS} solo shifts this month to count`,
+        live: `Last 30 days: ${fmt(live.spt)}${pctOf(live)} · ${live.shifts} solo shift${live.shifts === 1 ? "" : "s"}`,
       };
+      return gate(m, e, lastFrom < lastMonth.start ? lastFrom : lastMonth.start, lastEnd);
     }),
   );
 
@@ -278,29 +334,54 @@ export async function rewardsBoard(lib: LibraryIndex, store: typeof s.stores.$in
     sellers
       .filter((m) => m.role !== "bartender")
       .map((m) => {
-        const v = ads(lastSales.get(m.id));
-        return { memberId: m.id, name: m.name, role: m.role, value: v, metric: `${fmt(v)} spend per ticket`, eligible: false };
+        const st = standing(lastPerf.get(m.id));
+        const ramp = rampingOn(m, lastEnd);
+        return gate(
+          m,
+          {
+            memberId: m.id,
+            name: m.name,
+            role: m.role,
+            value: st.enough && !ramp ? st.pct : null,
+            metric: vs(st),
+            eligible: false,
+            note: ramp ? rampNote(m) : st.shifts < MIN_SHIFTS ? `${lmName}: ${st.shifts} of ${MIN_SHIFTS} solo shifts` : undefined,
+            progress: ramp ? 0 : along(st, MIN_SHIFTS),
+            next: "Highest share of their own target wins, at target or better.",
+          },
+          lastFrom < lastMonth.start ? lastFrom : lastMonth.start,
+          lastEnd,
+        );
       }),
   );
-  if (floorLeaders[0]?.value != null) floorLeaders[0].eligible = true;
+  const fp = floorLeaders.find((e) => !e.blocked && e.value != null && e.value >= 1);
+  if (fp) fp.eligible = true;
 
   const chef = sortDesc(
     sellers.map((m) => {
       const gs = grades.filter((g) => g.memberId === m.id);
       const v = gs.length ? Math.round((gs.reduce((a, g) => a + g.average, 0) / gs.length) * 100) / 100 : null;
       const signed = allSigned(m.id);
-      return {
-        memberId: m.id,
-        name: m.name,
-        role: m.role,
-        value: v,
-        metric: `${v == null ? "No floor grades" : `${v.toFixed(2)} stars`} · ${signed ? "all modules signed off" : `${program.get(m.id)?.done ?? 0}/${program.get(m.id)?.total ?? 0} modules`}`,
-        eligible: false,
-        note: signed ? undefined : "Needs every required module signed off",
-      };
+      return gate(
+        m,
+        {
+          memberId: m.id,
+          name: m.name,
+          role: m.role,
+          value: v,
+          metric: `${v == null ? "No floor grades" : `${v.toFixed(2)} stars`} · ${signed ? "all modules signed off" : `${program.get(m.id)?.done ?? 0}/${program.get(m.id)?.total ?? 0} modules`}`,
+          eligible: false,
+          note: signed ? undefined : "Needs every required module signed off",
+          // The lower of the grade against 4.5 stars and the share of required modules signed off.
+          progress: v == null ? 0 : Math.min(1, v / 4.5, signed ? 1 : (program.get(m.id)?.done ?? 0) / Math.max(1, program.get(m.id)?.total ?? 1)),
+          next: !signed ? "Get every required module signed off" : v == null ? "Ask for a floor grade this quarter" : v >= 4.5 ? "4.5 stars or better. The highest average wins." : `${(4.5 - v).toFixed(2)} stars to reach 4.5`,
+        },
+        q.start,
+        today,
+      );
     }),
   );
-  const chefTop = chef.find((e) => e.value != null && e.value >= 4.5 && allSigned(e.memberId));
+  const chefTop = chef.find((e) => !e.blocked && e.value != null && e.value >= 4.5 && allSigned(e.memberId));
   if (chefTop) chefTop.eligible = true;
 
   const cert = sortDesc(
@@ -310,53 +391,201 @@ export async function rewardsBoard(lib: LibraryIndex, store: typeof s.stores.$in
       const passed = somm.some((x) => x.memberId === m.id && x.score >= 0.8);
       const signed = allSigned(m.id);
       const missing = [!signed && "modules", !passed && "Sommelier's Table quiz", tenure < 180 && "six months"].filter(Boolean) as string[];
-      return {
-        memberId: m.id,
-        name: m.name,
-        role: m.role,
-        value: (p?.pct ?? 0) * 100 + (passed ? 10 : 0),
-        metric: `${p?.done ?? 0}/${p?.total ?? 0} modules · ${passed ? "quiz passed" : "quiz not passed"} · ${Math.floor(tenure / 30)} mo`,
-        eligible: missing.length === 0,
-        note: missing.length ? `Still needs: ${missing.join(", ")}` : undefined,
-      };
+      return gate(
+        m,
+        {
+          memberId: m.id,
+          name: m.name,
+          role: m.role,
+          value: (p?.pct ?? 0) * 100 + (passed ? 10 : 0),
+          metric: `${p?.done ?? 0}/${p?.total ?? 0} modules · ${passed ? "quiz passed" : "quiz not passed"} · ${Math.floor(tenure / 30)} mo`,
+          eligible: missing.length === 0,
+          note: missing.length ? `Still needs: ${missing.join(", ")}` : undefined,
+          progress: (p?.pct ?? 0) * 0.6 + (passed ? 0.2 : 0) + Math.min(1, tenure / 180) * 0.2,
+          next: missing.length ? `Still to do: ${missing.join(", ")}` : "Everything done. Your manager books the course.",
+        },
+        year.start,
+        today,
+      );
     }),
   );
 
   const peer = sortDesc(
     sellers.map((m) => {
-      const t = targetFor(m.role, T);
-      const v = ads(qSales.get(m.id));
+      const st = standing(qPerf.get(m.id), qMin);
       const strikes = ratings.get(m.id)?.strikes ?? 0;
       const qq = quotesIn(m.id, q.start);
-      const ok = v != null && v >= t && strikes === 0 && qq > 0;
-      return {
-        memberId: m.id,
-        name: m.name,
-        role: m.role,
-        value: ok ? 100 + (v ?? 0) : (v ?? 0) / 10,
-        metric: `${fmt(v)} · ${strikes} strike${strikes === 1 ? "" : "s"} · ${qq} quote${qq === 1 ? "" : "s"}`,
-        eligible: ok,
-      };
+      const ok = st.atTarget && strikes === 0 && qq > 0;
+      return gate(
+        m,
+        {
+          memberId: m.id,
+          name: m.name,
+          role: m.role,
+          value: ok ? 100 + (st.pct ?? 0) : (st.pct ?? 0) / 10,
+          metric: `${fmt(st.spt)}${pctOf(st)} · ${strikes} strike${strikes === 1 ? "" : "s"} · ${qq} quote${qq === 1 ? "" : "s"}`,
+          eligible: ok,
+          note: shiftsNote(st, qMin),
+          progress: along(st, qFull) * (strikes === 0 ? 1 : 0.8) * (qq > 0 ? 1 : 0.85),
+          next: ok ? "All three in hand: target, no strikes and a guest naming you." : [toGo(st), strikes ? "no strikes in the last 90 days" : null, qq ? null : "a guest naming you"].filter(Boolean).join(" · ") || "Hold your target to the end of the quarter",
+        },
+        q.start,
+        today,
+      );
     }),
   );
 
   const top = sortDesc(
     members.map((m) => {
       const r = ratings.get(m.id)?.overall ?? null;
-      return { memberId: m.id, name: m.name, role: m.role, value: r, metric: r == null ? "No rating yet" : `Rating ${r}`, eligible: false };
+      const ramp = rampingOn(m, today);
+      return gate(
+        m,
+        { memberId: m.id, name: m.name, role: m.role, value: ramp ? null : r, metric: r == null ? "No rating yet" : `Rating ${r}`, eligible: false, note: ramp ? rampNote(m) : undefined },
+        year.start,
+        today,
+      );
     }),
   );
-  if (top[0]?.value != null) top[0].eligible = true;
+  const tp = top.find((e) => !e.blocked && e.value != null);
+  if (tp) tp.eligible = true;
+  const topRating = tp?.value ?? null;
+  for (const e of top) {
+    e.progress = e.value == null || !topRating ? 0 : e.value / topRating;
+    e.next = e.eligible
+      ? "Highest overall rating in the store so far this year."
+      : e.note?.startsWith("Ramping")
+        ? "Your rating joins the ranking after your first month."
+        : e.value == null
+          ? "Your rating starts with your first shifts."
+          : `${(topRating! - e.value).toFixed(1)} points behind the leader`;
+  }
 
+  // Guest surveys: every review or survey a colleague is tagged in.
+  const surveysIn = (id: string, from: string) => feedback.filter((f) => f.receivedOn >= from && f.memberIds.includes(id));
+  const surveyCounts = members.map((m) => surveysIn(m.id, month.start).length);
+  const mostN = Math.max(0, ...surveyCounts);
+  const surveys = sortDesc(
+    members.map((m, i) => {
+      const n = surveyCounts[i]!;
+      const lead = n > 0 && n === mostN;
+      return gate(
+        m,
+        {
+          memberId: m.id,
+          name: m.name,
+          role: m.role,
+          value: n,
+          metric: `${n} survey${n === 1 ? "" : "s"} this month`,
+          eligible: false,
+          progress: mostN ? n / mostN : 0,
+          next: lead ? "Most in the store this month. Ties share it." : mostN ? `${mostN - n + 1} more to take the lead` : "First guest survey of the month takes the lead",
+        },
+        month.start,
+        today,
+      );
+    }),
+  );
+  const surveyTop = Math.max(0, ...surveys.filter((e) => !e.blocked).map((e) => e.value ?? 0));
+  for (const e of surveys) if (!e.blocked && surveyTop > 0 && e.value === surveyTop) e.eligible = true;
+
+  const dayPay = 8 * (store.trainingRate ?? 15);
+  const marked = (id: string) => feedback.filter((f) => f.receivedOn >= q.start && f.aboveBeyond && f.memberIds.includes(id));
+  const abN = members.map((m) => marked(m.id).length);
+  const abTop = Math.max(0, ...abN);
+  const above = sortDesc(
+    members.map((m, i) => {
+      const n = abN[i]!;
+      const stars = surveysIn(m.id, q.start).filter((f) => f.rating != null);
+      const avg = stars.length ? stars.reduce((a, f) => a + f.rating!, 0) / stars.length : 0;
+      return gate(
+        m,
+        {
+          memberId: m.id,
+          name: m.name,
+          role: m.role,
+          value: n ? n + avg / 10 : 0,
+          metric: `${n} above and beyond review${n === 1 ? "" : "s"} this quarter${stars.length ? ` · ${avg.toFixed(1)} stars` : ""}`,
+          eligible: false,
+          amount: 500 + dayPay,
+          progress: abTop ? n / abTop : 0,
+          next: n ? (n === abTop ? "Leading the quarter. The most marked reviews wins." : `${abTop - n} behind the leader`) : "A guest describing you going above and beyond, marked by a manager",
+        },
+        q.start,
+        today,
+      );
+    }),
+  );
+  const abLead = above.find((e) => !e.blocked && (e.value ?? 0) >= 1);
+  if (abLead) abLead.eligible = true;
+  for (const e of above) if (!e.eligible) e.amount = 0;
+
+  // Every 10 reviews where the guest used their name. All time, at this store. The name has to be in the guest's
+  // words (found by the platform), so a review a manager tagged by hand without the name in it doesn't count.
+  const allFeedback = await db
+    .select({ memberIds: s.guestFeedback.memberIds, matches: s.guestFeedback.matches, quote: s.guestFeedback.quote })
+    .from(s.guestFeedback)
+    .where(eq(s.guestFeedback.storeId, store.id));
+  const namedBy = (m: (typeof members)[number]) => {
+    const first = m.name.split(" ")[0]!.toLowerCase();
+    const word = new RegExp(`\\b${first.replace(/[^a-z]/g, "")}\\b`, "i");
+    return allFeedback.filter((f) => f.memberIds.includes(m.id) && (f.matches.some((x) => x.memberId === m.id) || word.test(f.quote))).length;
+  };
+  const named = sortDesc(
+    members.map((m) => {
+      const n = namedBy(m);
+      const reached = Math.floor(n / 10) * 10;
+      const period = `named-${Math.max(10, reached)}`;
+      const toNext = 10 - (n % 10);
+      const has = awards.some((a) => a.reward === "named_ten" && a.memberId === m.id && a.period === period);
+      const due = reached >= 10 && !has;
+      return gate(
+        m,
+        {
+          memberId: m.id,
+          name: m.name,
+          role: m.role,
+          value: n,
+          metric: `${n} review${n === 1 ? "" : "s"} naming them${reached >= 10 ? ` · ${reached / 10} reward${reached === 10 ? "" : "s"} reached` : ""}`,
+          // Stays listed once awarded, so the board shows it as given until the next ten.
+          eligible: reached >= 10,
+          period,
+          progress: due ? 1 : (n % 10) / 10,
+          next: due
+            ? `${reached} guests have used your name. Pick your Friday or Saturday section.`
+            : `${toNext} more guest${toNext === 1 ? "" : "s"} using your name to reach ${reached + 10}`,
+        },
+        // Conduct holds a milestone back while it is active, never wipes the count.
+        addDays(today, -30),
+        today,
+      );
+    }),
+  );
+
+  const quarterBasis = `Solo serving shifts ${short(q.start)} to today, at least ${MIN_SHIFTS} a month (${qMin} so far).`;
+  const lastBasis = `The ${ROLLING_DAYS} days ${short(lastFrom)} to ${short(lastEnd)}, at least ${MIN_SHIFTS} solo serving shifts.`;
   const boards: Record<RewardKey, RewardBoard> = {
-    day_off: board("day_off", q, dayOff),
-    guest_quote: board("guest_quote", month, quotes),
-    ads_bonus: board("ads_bonus", lastMonth, bonus),
-    first_pick: board("first_pick", lastMonth, floorLeaders),
-    chefs_table: board("chefs_table", q, chef),
-    certification: board("certification", year, cert),
-    peer_dinner: board("peer_dinner", q, peer),
-    winery_visit: board("winery_visit", year, top),
+    day_off: board("day_off", q, quarterBasis, dayOff),
+    guest_quote: board("guest_quote", month, "Guest reviews and comment cards this month.", quotes),
+    ads_bonus: board("ads_bonus", lastMonth, `${lastBasis} ${Math.round(CASH_OVER * 100)}% over target pays $${CASH_BONUS}.`, bonus),
+    first_pick: board("first_pick", lastMonth, `${lastBasis} Highest share of their own target, at target or better.`, floorLeaders),
+    chefs_table: board("chefs_table", q, "Floor grades this quarter.", chef),
+    certification: board("certification", year, "Modules, the Sommelier's Table quiz and tenure.", cert),
+    peer_dinner: board("peer_dinner", q, quarterBasis, peer),
+    winery_visit: board("winery_visit", year, "Overall rating this year.", top),
+    most_surveys: board("most_surveys", month, "Guest reviews and surveys tagged to each colleague this month.", surveys),
+    above_beyond: board(
+      "above_beyond",
+      q,
+      `Reviews a manager marked above and beyond this quarter. $500 cash plus a paid day off: 8 hours × $${(store.trainingRate ?? 15).toFixed(2)} training rate = $${dayPay.toFixed(0)}.`,
+      above,
+    ),
+    named_ten: {
+      ...board("named_ten", { key: "milestone", label: "All time" }, "Reviews and surveys where the guest used their name, all time at this store.", named),
+      awarded: awards
+        .filter((a) => a.reward === "named_ten" && named.some((e) => e.memberId === a.memberId && e.period === a.period))
+        .map((a) => ({ memberId: a.memberId, memberName: a.memberName, amount: a.amount, awardedByName: a.awardedByName, awardedAt: a.awardedAt.getTime(), note: a.note })),
+    },
   };
   return lib.lib.rewards.map((r) => boards[r.key]).filter(Boolean);
 }

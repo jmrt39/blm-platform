@@ -1,19 +1,21 @@
 // Demo training, grades, quizzes, updates, guest quotes, rewards, certifications, log book and slow nights.
+import { eq } from "drizzle-orm";
 import * as s from "../database/schema";
 import { db } from "../database";
 import { insertChunked } from "./core";
+import { autoTagUntagged } from "./surveys";
 import { addDays, zoned } from "./time";
 import { isManagementRole } from "../../shared/domain";
-import { targetForRole } from "../../shared/metrics";
-import { PASS_MARK, adsBonus, monthOf, requiredCerts, seasonOf, type Question } from "../../shared/program";
+import { cashBonus, targetForRole } from "../../shared/metrics";
+import { PASS_MARK, monthOf, requiredCerts, seasonOf, type Question } from "../../shared/program";
 import { modulesFor } from "../../shared/library/modules";
 import { QUIZ_BY_SLUG, scoreQuiz } from "../../shared/library/quizzes";
 import { RUBRIC_BY_SLUG, gradeAverage } from "../../shared/library/rubrics";
 
 type Member = { id: string; name: string; role: string; hireDate: string; tenure: number; ppa?: number; isTrainer: boolean };
 
-/** Seed baselines are per cover; a server ticket carries about 2.6 covers, a bar ticket about 1.6. */
-const sptOf = (m: Member) => (m.ppa == null ? null : m.ppa * (m.role === "bartender" ? 1.6 : 2.6));
+/** Seed baselines are per cover; a server ticket carries about 1.07 covers, a bar ticket about 0.66 (bar tabs split often). */
+const sptOf = (m: Member) => (m.ppa == null ? null : m.ppa * (m.role === "bartender" ? 0.66 : 1.07));
 type Store = { id: string; name: string; si: number; ticketTarget: number; roster: Member[] };
 
 const SELL = ["server", "bartender", "sommelier"];
@@ -68,7 +70,7 @@ export async function seedProgram(opts: {
       const seller = SELL.includes(m.role);
       // Skill: veterans and strong sellers score higher.
       const spt = sptOf(m);
-      const rel = spt != null ? (spt - targetForRole(m.role, st.ticketTarget)) / 25 : 0;
+      const rel = spt != null ? (spt - targetForRole(m.role, st.ticketTarget)) / 10 : 0;
       const skill = Math.max(0.55, Math.min(0.97, 0.78 + rel * 0.08 + Math.min(m.tenure, 720) / 720 * 0.12));
       // How far through the library they are.
       const reach = m.tenure < 15 ? 2 : m.tenure < 30 ? 5 : m.tenure < 60 ? 8 : m.tenure < 120 ? mods.length - 2 : mods.length;
@@ -186,7 +188,7 @@ export async function seedProgram(opts: {
             notes,
             summary:
               avg >= 4.3
-                ? "Sets the standard. Use this table as the example at line-up."
+                ? "Sets the standard. Use this table as the example at line up."
                 : avg >= 3.5
                   ? "Solid service. Coaching point: wine with the entrée at every table."
                   : "Friendly and fast, but the upsell isn't there yet. Shadow a top seller for one turn.",
@@ -280,33 +282,60 @@ export async function seedProgram(opts: {
     if (somm) certFor(somm, st.si === 0 ? "wset2" : "cms_intro", null, st.si === 0 ? "WSET" : "Court of Master Sommeliers");
 
     // ── Guest quotes naming staff ────────────────────────────────────────
-    const Q = (<[number, string, string, number | null, string, string[], boolean?][][]>[
+    // Tuple: days ago, source, guest, stars, words, names a manager tagged, extras.
+    // Reviews with no names are left for the platform to tag itself, misspellings and all.
+    type Opt = { pin?: boolean; ab?: boolean; url?: "google" | "yelp" | "tripadvisor"; replied?: boolean };
+    // Demo stores are fictional, so "where it was posted" opens a real platform search for the name instead of a dead link.
+    const q = encodeURIComponent(st.name);
+    const demoUrl = {
+      google: `https://www.google.com/maps/search/?api=1&query=${q}`,
+      yelp: `https://www.yelp.com/search?find_desc=${q}`,
+      tripadvisor: `https://www.tripadvisor.com/Search?q=${q}`,
+    };
+    const Q = (<[number, string, string, number | null, string, string[], Opt?][][]>[
       [
-        [2, "OpenTable", "Margaret L.", 5, "Maya remembered our anniversary from last year and had the Barolo decanted before we sat down. Setting the standard, honestly.", ["Maya Collins"], true],
+        [1, "Google", "Leah M.", 5, "Camile took such good care of us. She knew the menu inside out and the ribeye was perfect.", []],
+        [2, "Survey", "", 4, "Our server Kris had great cocktail ideas. A little slow on the check at the end.", []],
+        [2, "OpenTable", "Margaret L.", 5, "Maya remembered our anniversary from last year and had the Barolo decanted before we sat down. Setting the standard, honestly.", ["Maya Collins"], { pin: true }],
+        [3, "Survey", "", 5, "Our server Mya was wonderful with my father, who uses a walker. Found us the quietest table.", []],
+        [4, "Resy", "Paul T.", 5, "Kamille went above and beyond for my mother's 80th. Brought out a candle and a card the whole team signed.", ["Camille Rhodes"], { ab: true }],
         [5, "Google", "Tom R.", 5, "Chris at the bar walked me through three ryes and nailed the Old Fashioned on the second try. Best bar in town.", ["Chris Ortega"]],
+        [6, "OpenTable", "", 3, "Food was good and service was fine. Nobody checked on us after the entree though.", []],
         [9, "Resy", "Priya & Dev", 5, "Sam suggested the wagyu with the Malbec and he was right. Didn't feel upsold, felt looked after.", ["Sam Whitaker"]],
         [12, "Comment card", "", 4, "Camille is new but you'd never know. Checked on us after two bites and fixed a cold side in a minute.", ["Camille Rhodes"]],
-        [20, "Yelp", "Andrea K.", 5, "Elena paired every course for our table of six. Always finding ways to go above and beyond.", ["Elena Vasquez"]],
+        [20, "Yelp", "Andrea K.", 5, "Elena paired every course for our table of six. Always finding ways to go above and beyond.", ["Elena Vasquez"], { ab: true }],
         [27, "Email", "J. Whitfield", 5, "Nadia handled my daughter's nut allergy perfectly and the kitchen came out to confirm. Thank you.", ["Nadia Haddad"]],
         [41, "OpenTable", "Grace H.", 5, "Maya and Jordan made a business dinner look effortless.", ["Maya Collins", "Jordan Lee"]],
+        // Chris has been here longest of the two the owner asked about (1120 days vs Camille's 24). Bar, and the trainer.
+        [3, "Google", "Natalie B.", 5, "Chris behind the bar remembered my usual from back in the spring and had a new mezcal ready for me to try. He was training a new bartender at the same time and never missed a beat.", ["Chris Ortega"], { url: "google" }],
+        [8, "Yelp", "Owen G.", 4, "Chris made the best Negroni I've had outside Florence and talked us through the amaro list. Only gripe: the bar got so loud by 8 we could barely hear him.", ["Chris Ortega"], { url: "yelp", replied: true }],
+        // Opportunities to improve.
+        [1, "Yelp", "Rachel S.", 2, "We waited 45 minutes for mains on a Tuesday and nobody explained why. The steak arrived lukewarm.", [], { url: "yelp" }],
+        [4, "Google", "Kevin D.", 3, "Lovely room, but the wine we ordered was forgotten and we had to ask twice. Felt overpriced for what it was.", [], { url: "google" }],
+        [10, "Tripadvisor", "", 3, "Our reservation was for 7:30 and we were seated late, at 8:05, at a bad table by the kitchen door.", [], { url: "tripadvisor" }],
       ],
       [
-        [1, "Google", "Ben S.", 5, "Olivia knew the whole wine list cold and found us a bottle under $70 that drank like double that.", ["Olivia Chen"], true],
+        [1, "Google", "Ben S.", 5, "Olivia knew the whole wine list cold and found us a bottle under $70 that drank like double that.", ["Olivia Chen"], { pin: true }],
+        [2, "Survey", "", 5, "Isak was so patient with our big group and split the checks without a single sigh.", []],
         [6, "Resy", "Hannah P.", 4, "Isaac was lovely. Kiera's espresso martini is the best in the city.", ["Isaac Turner", "Kiera Walsh"]],
-        [14, "Tripadvisor", "M. Duarte", 5, "Julien turned our birthday into a tasting. Always finding ways to go above and beyond.", ["Julien Moreau"]],
+        [14, "Tripadvisor", "M. Duarte", 5, "Julien turned our birthday into a tasting. Always finding ways to go above and beyond.", ["Julien Moreau"], { ab: true }],
         [23, "Comment card", "", 5, "Lena is brand new and so warm. Ask for her section.", ["Lena Novak"]],
         [33, "OpenTable", "Carla V.", 5, "Olivia again. Remembered how I like my martini from a visit in July.", ["Olivia Chen"]],
       ],
       [
-        [3, "OpenTable", "The Nguyens", 5, "Lucas read our table perfectly: quick for the kids, slow for the wine. Setting the standard.", ["Lucas Bennett"], true],
+        [2, "Survey", "", 5, "Lukas was the best server we've had in years. Ema at the host stand was lovely too.", []],
+        [3, "OpenTable", "The Nguyens", 5, "Lucas read our table perfectly: quick for the kids, slow for the wine. Setting the standard.", ["Lucas Bennett"], { pin: true }],
         [8, "Google", "R. Patel", 5, "Emma recommended the dry aged ribeye and the Rioja Reserva. Perfect.", ["Emma Fischer"]],
         [15, "Resy", "Sam O.", 5, "Finn built us a smoky mezcal flight off menu. What a bar.", ["Finn O'Connor"]],
         [26, "Yelp", "Dana W.", 4, "Aaliyah fixed a mix up with our order before we even noticed.", ["Aaliyah Jordan"]],
         [38, "Email", "K. Moore", 5, "Zoe and Mia made our engagement dinner unforgettable.", ["Zoe Alvarez", "Mia Russo"]],
       ],
     ])[st.si]!;
-    for (const [d, source, guestName, rating, quote, names, pin] of Q) {
+    for (const [d, source, guestName, rating, quote, names, opt = {}] of Q) {
       const ms = names.map(by).filter((m): m is Member => !!m);
+      const tagged = ms.length > 0;
+      // Older reviews were read and seen long ago; the last few days are still new to the manager and the colleague.
+      const old = d >= 7;
       feedback.push({
         ...base,
         source,
@@ -316,10 +345,68 @@ export async function seedProgram(opts: {
         receivedOn: addDays(today, -d),
         memberIds: ms.map((m) => m.id),
         memberNames: ms.map((m) => m.name),
-        pinnedOn: pin ? today : null,
-        pinnedByName: pin ? gm.name : null,
+        tagSource: tagged ? "manager" : null,
+        taggedByName: tagged ? gm.name : null,
+        taggedAt: tagged ? at(Math.max(0, d - 1), "10:30") : null,
+        readAt: tagged ? at(Math.max(0, d - 1), "10:30") : null,
+        seenBy: old ? ms.map((m) => m.id) : [],
+        aboveBeyond: !!opt.ab,
+        aboveBeyondByName: opt.ab ? gm.name : null,
+        pinnedOn: opt.pin ? today : null,
+        pinnedByName: opt.pin ? gm.name : null,
         recordedByName: gm.name,
+        externalUrl: opt.url ? demoUrl[opt.url] : null,
+        respondedAt: opt.replied ? at(Math.max(0, d - 1), "11:15") : null,
+        respondedByName: opt.replied ? gm.name : null,
       });
+    }
+
+    // Older named reviews, so the Every 10 reward has someone there and someone close.
+    const OLD: [string, number, string[]][] = [
+      ["Maya Collins", 10, [
+        "Maya steered us to the halibut and a Chablis we'd never have picked. Perfect night.",
+        "Ask for Maya. Warm, sharp and never rushed us.",
+        "Maya noticed my wife was cold and had us moved before we asked.",
+        "Third visit, third time with Maya. She remembers everything.",
+        "Maya made our client dinner feel easy. We'll be back.",
+        "Our server Maya knew every producer on the list.",
+        "Maya handled a big birthday table like it was nothing.",
+        "Maya suggested the tasting menu and paced it beautifully.",
+        "Maya was attentive without hovering. Exactly right.",
+        "Maya walked my dad through the whole menu with real patience.",
+      ]],
+      ["Sam Whitaker", 6, [
+        "Sam knows his steaks. The dry aged strip was the call.",
+        "Sam was quick, funny and spot on with the wine.",
+        "Sam talked us into dessert and we're glad he did.",
+        "Sam kept our table of eight moving without a hitch.",
+        "Sam found us a gluten free option that didn't feel like a compromise.",
+        "Sam made a first date go very well.",
+      ]],
+    ];
+    const SRC = ["Google", "OpenTable", "Resy", "Yelp", "Comment card", "Email"];
+    for (const [name, n, lines] of st.si === 0 ? OLD : []) {
+      const m = by(name);
+      if (!m) continue;
+      for (let i = 0; i < n; i++) {
+        const d = 48 + i * 11;
+        feedback.push({
+          ...base,
+          source: SRC[i % SRC.length]!,
+          guestName: "",
+          rating: i % 4 === 3 ? 4 : 5,
+          quote: lines[i % lines.length]!,
+          receivedOn: addDays(today, -d),
+          memberIds: [m.id],
+          memberNames: [m.name],
+          matches: [{ memberId: m.id, name: m.name, word: name.split(" ")[0]!, score: 1, how: "exact" }],
+          tagSource: "auto",
+          taggedAt: at(d - 1, "10:30"),
+          readAt: at(d - 1, "10:30"),
+          seenBy: [m.id],
+          recordedByName: gm.name,
+        });
+      }
     }
 
     // ── Rewards already handed out ───────────────────────────────────────
@@ -327,7 +414,7 @@ export async function seedProgram(opts: {
     const sellers = staff.filter((m) => m.ppa != null && m.tenure > 30).sort((a, b) => sptOf(b)! - sptOf(a)!);
     const t = st.ticketTarget;
     for (const m of sellers) {
-      const amount = adsBonus(sptOf(m)!, targetForRole(m.role, t), m.role);
+      const amount = cashBonus(sptOf(m)!, targetForRole(m.role, t));
       if (amount)
         awards.push({ ...base, memberId: m.id, memberName: m.name, reward: "ads_bonus", period: last.key, amount, note: "", awardedByName: gm.name, awardedAt: at(6, "11:00") });
     }
@@ -337,7 +424,7 @@ export async function seedProgram(opts: {
     const quoted = Q.find(([d]) => d >= 30);
     const qm = quoted && by(quoted[5][0]!);
     if (qm)
-      awards.push({ ...base, memberId: qm.id, memberName: qm.name, reward: "guest_quote", period: last.key, amount: 50, note: "Gift card for the quote read at line-up.", awardedByName: gm.name, awardedAt: at(Math.max(1, quoted![0] - 2), "16:00") });
+      awards.push({ ...base, memberId: qm.id, memberName: qm.name, reward: "guest_quote", period: last.key, amount: 50, note: "Gift card for the quote read at line up.", awardedByName: gm.name, awardedAt: at(Math.max(1, quoted![0] - 2), "16:00") });
 
     // ── Log book ─────────────────────────────────────────────────────────
     const L = (<[number, "lunch" | "dinner", "note" | "maintenance" | "incident", string, string, "open" | "resolved", string?][][]>[
@@ -351,13 +438,13 @@ export async function seedProgram(opts: {
       [
         [0, "dinner", "note", "Slow week forecast", "Harbor festival moved to next weekend. Expect light covers Tuesday through Thursday. See the slow night plan.", "resolved"],
         [2, "dinner", "maintenance", "Dish machine rinse temp low", "Final rinse reading 165°F, should be 180°F. Using sanitizer sink as backup. Hobart called.", "open"],
-        [7, "dinner", "incident", "Guest allergy reaction (mild)", "Guest reported tingling after the crab cake starter; shellfish allergy was not on the ticket. Guest used own antihistamine, fine within 20 minutes. Meal comped.", "resolved", "Allergy modifier re-trained at line-up. Server re-graded on POS accuracy."],
+        [7, "dinner", "incident", "Guest allergy reaction (mild)", "Guest reported tingling after the crab cake starter; shellfish allergy was not on the ticket. Guest used own antihistamine, fine within 20 minutes. Meal comped.", "resolved", "Allergy modifier retrained at line up. Server regraded on POS accuracy."],
         [12, "lunch", "maintenance", "Host stand tablet cracked", "Corner crack, still works. Replacement ordered.", "resolved"],
       ],
       [
         [1, "dinner", "maintenance", "Ice machine slow", "Bar ice machine producing about half. Filter changed, watching it.", "open"],
         [3, "dinner", "note", "Private room booked for Saturday", "Chen family, 22 guests, set menu B, two bottles of the 2016 Rioja Gran Reserva held.", "resolved"],
-        [10, "dinner", "incident", "Broken glass in the ice well", "Wine glass broke over the ice well at 7:15. Well burned and refilled, glass rack moved off the rail.", "resolved", "Burned and re-stocked in 6 minutes. Good job Finn."],
+        [10, "dinner", "incident", "Broken glass in the ice well", "Wine glass broke over the ice well at 7:15. Well burned and refilled, glass rack moved off the rail.", "resolved", "Burned and restocked in 6 minutes. Good job Finn."],
       ],
     ])[st.si]!;
     for (const [d, shift, kind, title, body, status, note] of L) {
@@ -471,7 +558,7 @@ export async function seedProgram(opts: {
       3,
       "menu",
       `${season.split(" ")[0]} menu: five new plates`,
-      "The autumn menu goes live this week. Taste every plate at Thursday's line-up. Know the story, the allergens, and the wine you'd pour with it.",
+      "The autumn menu goes live this week. Taste every plate at Thursday's line up. Know the story, the allergens, and the wine you'd pour with it.",
       [
         { name: "Roasted delicata squash", detail: "Brown butter, sage, pepitas, whipped ricotta. Contains dairy and seeds. Pair: Viognier." },
         { name: "Duck breast, cherry jus", detail: "Medium rare only, farro, charred radicchio. Gluten in the farro. Pair: Willamette Pinot Noir." },
@@ -552,7 +639,17 @@ export async function seedProgram(opts: {
   await insertChunked(s.quizAttempts, attempts, 60);
   await insertChunked(s.certifications, certs);
   await insertChunked(s.hourGoals, goals);
+  // Link each demo store's Google and Yelp pages (a search, since the stores are fictional). The rest stay blank to show the gap.
+  for (const st of stores) {
+    const q = encodeURIComponent(st.name);
+    await db
+      .update(s.stores)
+      .set({ reviewLinks: { Google: `https://www.google.com/maps/search/?api=1&query=${q}`, Yelp: `https://www.yelp.com/search?find_desc=${q}` } })
+      .where(eq(s.stores.id, st.id));
+  }
   await insertChunked(s.guestFeedback, feedback);
+  // Let the platform tag the reviews nobody named, the way it does for new ones.
+  for (const st of stores) await autoTagUntagged(st.id);
   await insertChunked(s.rewardAwards, awards);
   await insertChunked(s.logEntries, logs);
   await insertChunked(s.slowNightActions, slow);

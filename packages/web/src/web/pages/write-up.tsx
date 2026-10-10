@@ -6,6 +6,7 @@ import { useViewer } from "../components/viewer";
 import { SignatureView, SignedStamp } from "../components/signature";
 import { ActionStatus, EVENT_ICON, SigField, StrikeDots, Warn } from "../components/conduct-bits";
 import { useAction, useOwnerDecide, useSignAction } from "../queries/conduct";
+import { PlanPanel } from "../components/plan-panel";
 import { EVENT_LABEL, STEPS, STEP_LABEL, STRIKE_WINDOW_DAYS } from "../../shared/conduct";
 import { ROLE_LABEL } from "../../shared/domain";
 import { dayLabel, shortDay } from "../lib/format";
@@ -18,7 +19,7 @@ const NEXT: Record<string, string> = {
   termination: "Termination is final once the owner approves it.",
 };
 
-/** Sign-off times read in the store's own time zone, like the rest of the app. */
+/** Sign off times read in the store's own time zone, like the rest of the app. */
 const stamp = (tz: string) => (d: Date | string | null | undefined) =>
   d ? new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: tz }).replace(" AM", " am").replace(" PM", " pm") : "";
 
@@ -49,7 +50,7 @@ export default function WriteUpPage() {
           <Link href="/conduct" className="hover:underline">
             Conduct
           </Link>{" "}
-          · Write-up · {store?.name}
+          · Write up · {store?.name}
         </>
       }
       title={a.stepLabel}
@@ -152,7 +153,7 @@ export default function WriteUpPage() {
                   </button>
                 </>
               ) : (
-                <div className="text-[13px] text-ink-soft">{a.status === "void" ? "—" : "Waiting for a manager."}</div>
+                <div className="text-[13px] text-ink-soft">{a.status === "void" ? "Nothing to sign." : "Waiting for a manager."}</div>
               )}
             </div>
             <div>
@@ -180,14 +181,16 @@ export default function WriteUpPage() {
                   >
                     {a.step === "termination" ? "Sign & send to owner" : "Sign & file"}
                   </button>
-                  <p className="mt-2 text-[11.5px] text-ink-soft">Signing confirms {a.memberName.split(" ")[0]} received this write-up, not that they agree with it.</p>
+                  <p className="mt-2 text-[11.5px] text-ink-soft">Signing confirms {a.memberName.split(" ")[0]} received this write up, not that they agree with it.</p>
                 </>
               ) : (
-                <div className="text-[13px] text-ink-soft">{a.status === "awaiting_signatures" ? "Signs after the manager, on the same device." : "—"}</div>
+                <div className="text-[13px] text-ink-soft">{a.status === "awaiting_signatures" ? "Signs after the manager, on the same device." : "Nothing to sign."}</div>
               )}
             </div>
           </div>
           <ErrorNote error={sign.error} />
+
+          {a.step === "plan" && a.status !== "void" && <PlanPanel actionId={a.id} firstName={a.memberName.split(" ")[0] ?? a.memberName} />}
 
           {a.step === "termination" && (
             <div className={cn("rounded-[2px] p-5", a.status === "awaiting_owner" ? "bg-noir text-ivory" : "bg-paper-2")}>
@@ -231,12 +234,12 @@ export default function WriteUpPage() {
         <aside className="space-y-6">
           <div className="rounded-[2px] bg-paper-2 p-5 text-[13px] leading-relaxed">
             <div className="eyebrow mb-2">The policy</div>
-            Every late arrival (more than 5 minutes), dress-code miss, no-show and swap without proof is a strike. Strikes count for {STRIKE_WINDOW_DAYS} days unless a manager excuses
+            Every late arrival (more than 5 minutes), dress code miss, no show and swap without proof is a strike. Strikes count for {STRIKE_WINDOW_DAYS} days unless a manager excuses
             them. 3 strikes is a verbal warning, 4 written, 5 a performance plan, 6 termination, which the owner approves before it's final.
           </div>
           {history.length > 0 && (
             <div>
-              <div className="eyebrow mb-2">Earlier write-ups</div>
+              <div className="eyebrow mb-2">Earlier write ups</div>
               <ul className="divide-y divide-paper-line border-y rule">
                 {history.map((h) => (
                   <li key={h.id}>

@@ -16,3 +16,6 @@ export function useRevokeReward() {
   const onSuccess = useInvalidate();
   return useMutation(orpc.rewards.revoke.mutationOptions({ onSuccess }));
 }
+export function useMyRewards(memberId: string | null, enabled = true) {
+  return useQuery({ ...orpc.rewards.mine.queryOptions({ input: { memberId } }), enabled });
+}

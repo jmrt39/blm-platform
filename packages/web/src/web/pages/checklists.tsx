@@ -115,8 +115,8 @@ export function ChecklistsPage() {
                   <td className="r">
                     {c.done}/{c.total}
                   </td>
-                  <td>{c.verifiedByName ?? "—"}</td>
-                  <td className="r">{c.submittedAt ? timeOf(c.submittedAt, tz) : "—"}</td>
+                  <td>{c.verifiedByName ?? "·"}</td>
+                  <td className="r">{c.submittedAt ? timeOf(c.submittedAt, tz) : "·"}</td>
                   <td className="r">
                     <StatusPill status={c.status} late={c.late} />
                   </td>

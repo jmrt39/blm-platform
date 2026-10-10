@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { ArrowUpRight, Plus, Trash2 } from "lucide-react";
 import { Page, Loading, ErrorNote } from "../components/shell";
 import { useViewer } from "../components/viewer";
 import { Empty } from "../components/bits";
 import { useAddAreaManager, useCreateStore, useLeadership, useRemoveAreaManager, useStores, useUpdateAreaManager, useUpdateStore } from "../queries/stores";
 import { ROLE_LABEL, type StoreRole } from "../../shared/domain";
-import { errMsg } from "../lib/format";
+import { errMsg, money } from "../lib/format";
+import { BAR_TARGET_SHARE, DEFAULT_TICKET_TARGET } from "../../shared/metrics";
+import { PLATFORM_INFO, REVIEW_PLATFORMS, type ReviewLinks } from "../../shared/reviews";
 
 function clock(hhmm: string) {
   const [h = 0, m = 0] = hhmm.split(":").map(Number);
@@ -17,7 +19,19 @@ type StoreRow = NonNullable<ReturnType<typeof useStores>["data"]>[number];
 function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
   const update = useUpdateStore();
   const [edit, setEdit] = useState(false);
-  const [f, setF] = useState({ name: s.name, city: s.city, pin: s.pin ?? "", ticketTarget: String(s.ticketTarget), openingDueBy: s.openingDueBy, closingDueBy: s.closingDueBy });
+  const [f, setF] = useState({
+    name: s.name,
+    city: s.city,
+    pin: s.pin ?? "",
+    ticketTarget: String(s.ticketTarget),
+    trainingRate: String(s.trainingRate),
+    dinnerPartTarget: s.dinnerPartTarget == null ? "" : String(s.dinnerPartTarget),
+    lunchTarget: s.lunchTarget == null ? "" : String(s.lunchTarget),
+    lunchPartTarget: s.lunchPartTarget == null ? "" : String(s.lunchPartTarget),
+    openingDueBy: s.openingDueBy,
+    closingDueBy: s.closingDueBy,
+  });
+  const opt = (x: string) => (x.trim() ? Number(x) : null);
   const [err, setErr] = useState<string | null>(null);
   return (
     <div className="border border-paper-line bg-paper-2/40 p-5">
@@ -25,7 +39,7 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
         <div>
           <div className="eyebrow">Store {s.number}</div>
           <div className="font-display text-[26px] leading-tight text-ink">{s.name}</div>
-          <div className="text-[13px] text-ink-soft">{s.city || "—"}</div>
+          <div className="text-[13px] text-ink-soft">{s.city || "·"}</div>
         </div>
         {canEdit && !edit && (
           <button className="btn btn-line" onClick={() => setEdit(true)}>
@@ -39,9 +53,11 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
             <dt className="label">Store PIN</dt>
             <dd className="figure text-[18px] tracking-[0.2em]">{s.pin ?? "••••"}</dd>
           </div>
-          <div>
-            <dt className="label">Spend per ticket target</dt>
-            <dd className="figure text-[18px]">${s.ticketTarget}</dd>
+          <div className="col-span-2">
+            <dt className="label">Spend per ticket targets</dt>
+            <dd>
+              <TargetGrid grid={s.grid} set={{ dinnerFull: true, dinnerPart: s.dinnerPartTarget != null, lunchFull: s.lunchTarget != null, lunchPart: s.lunchPartTarget != null }} />
+            </dd>
           </div>
           <div>
             <dt className="label">Opening due</dt>
@@ -54,6 +70,9 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
           <div className="col-span-2 md:col-span-4">
             <dt className="label">Management · {s.headcount} on the team</dt>
             <dd className="text-ink">{s.managers.length ? s.managers.map((m) => `${m.name} (${ROLE_LABEL[m.role as StoreRole] ?? m.role})`).join(" · ") : "No managers yet"}</dd>
+          </div>
+          <div className="col-span-2 md:col-span-4">
+            <ReviewLinksBlock s={s} canEdit={canEdit} />
           </div>
         </dl>
       ) : (
@@ -68,6 +87,10 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
                 name: f.name,
                 city: f.city,
                 ticketTarget: Number(f.ticketTarget),
+                trainingRate: Number(f.trainingRate),
+                dinnerPartTarget: opt(f.dinnerPartTarget),
+                lunchTarget: opt(f.lunchTarget),
+                lunchPartTarget: opt(f.lunchPartTarget),
                 openingDueBy: f.openingDueBy,
                 closingDueBy: f.closingDueBy,
                 ...(f.pin && f.pin !== s.pin ? { pin: f.pin } : {}),
@@ -90,10 +113,23 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
             <span className="label">Store PIN</span>
             <input aria-label="Store PIN" className="field" inputMode="numeric" maxLength={6} value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value.replace(/\D/g, "") })} />
           </label>
-          <label>
-            <span className="label">Spend per ticket target ($)</span>
-            <input aria-label="Spend per ticket target ($)" className="field" type="number" required min={10} value={f.ticketTarget} onChange={(e) => setF({ ...f, ticketTarget: e.target.value })} />
-          </label>
+          <fieldset className="col-span-2 md:col-span-3">
+            <legend className="label">Spend per ticket targets ($)</legend>
+            <div className="grid grid-cols-[auto_1fr_1fr] items-center gap-2 text-[12.5px]">
+              <span />
+              <span className="font-semibold">Full time</span>
+              <span className="font-semibold">Part time</span>
+              <span className="font-semibold">Dinner</span>
+              <input aria-label="Dinner full time target" className="field" type="number" required min={10} step="0.01" value={f.ticketTarget} onChange={(e) => setF({ ...f, ticketTarget: e.target.value })} />
+              <input aria-label="Dinner part time target" className="field" type="number" min={5} step="0.01" value={f.dinnerPartTarget} placeholder={String(s.grid.dinnerPart)} onChange={(e) => setF({ ...f, dinnerPartTarget: e.target.value })} />
+              <span className="font-semibold">Lunch</span>
+              <input aria-label="Lunch full time target" className="field" type="number" min={5} step="0.01" value={f.lunchTarget} placeholder={String(s.grid.lunchFull)} onChange={(e) => setF({ ...f, lunchTarget: e.target.value })} />
+              <input aria-label="Lunch part time target" className="field" type="number" min={5} step="0.01" value={f.lunchPartTarget} placeholder={String(s.grid.lunchPart)} onChange={(e) => setF({ ...f, lunchPartTarget: e.target.value })} />
+            </div>
+            <p className="mt-2 text-[12px] text-ink-soft">
+              Dinner full time is the headline. Leave a cell blank and it follows from that. Full time sits higher because veterans get first call on large parties. Bartenders are held to {Math.round(BAR_TARGET_SHARE * 100)}% of their cell. Changing a target never rewrites a night already saved.
+            </p>
+          </fieldset>
           <label>
             <span className="label">Opening due by</span>
             <input aria-label="Opening due by" className="field" type="time" value={f.openingDueBy} onChange={(e) => setF({ ...f, openingDueBy: e.target.value })} />
@@ -101,6 +137,11 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
           <label>
             <span className="label">Closing due by</span>
             <input aria-label="Closing due by" className="field" type="time" value={f.closingDueBy} onChange={(e) => setF({ ...f, closingDueBy: e.target.value })} />
+          </label>
+          <label>
+            <span className="label">Training rate ($ an hour)</span>
+            <input aria-label="Training rate" className="field" type="number" required min={1} step="0.01" value={f.trainingRate} onChange={(e) => setF({ ...f, trainingRate: e.target.value })} />
+            <span className="mt-1 block text-[11.5px] text-ink-soft">Pays the 8 hour day off in Above and beyond: {money(8 * (Number(f.trainingRate) || 0))}.</span>
           </label>
           <div className="col-span-2 flex items-center gap-2 md:col-span-3">
             <button className="btn btn-ink" disabled={update.isPending}>
@@ -113,6 +154,105 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
           </div>
         </form>
       )}
+    </div>
+  );
+}
+
+/** Where each platform's reviews live for this store. "Respond" buttons on reviews open these in a new tab. */
+function ReviewLinksBlock({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
+  const update = useUpdateStore();
+  const [edit, setEdit] = useState(false);
+  const [f, setF] = useState<ReviewLinks>(s.reviewLinks);
+  const [err, setErr] = useState<string | null>(null);
+  const set = REVIEW_PLATFORMS.filter((p) => s.reviewLinks[p] || (p === "Google" && s.reviewLinks.googlePlaceId));
+  return (
+    <div className="border-t border-paper-line pt-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <dt className="label">Review platforms · {set.length} of {REVIEW_PLATFORMS.length} linked</dt>
+        {canEdit && !edit && (
+          <button type="button" className="text-[12.5px] font-semibold text-gold-deep hover:underline" onClick={() => setEdit(true)}>
+            {set.length ? "Edit links" : "Add links"}
+          </button>
+        )}
+      </div>
+      {!edit ? (
+        <dd className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px]">
+          {REVIEW_PLATFORMS.map((p) => {
+            const href = p === "Google" && !s.reviewLinks.Google && s.reviewLinks.googlePlaceId ? `https://search.google.com/local/reviews?placeid=${encodeURIComponent(s.reviewLinks.googlePlaceId)}` : s.reviewLinks[p];
+            return href ? (
+              <a key={p} href={href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-ink hover:underline">
+                {p} <ArrowUpRight className="size-3" />
+              </a>
+            ) : (
+              <span key={p} className="text-ink-soft">
+                {p}: not linked
+              </span>
+            );
+          })}
+        </dd>
+      ) : (
+        <form
+          className="mt-2 grid gap-3 md:grid-cols-2"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setErr(null);
+            const bad = REVIEW_PLATFORMS.find((p) => f[p]?.trim() && !/^https?:\/\//i.test(f[p]!.trim()));
+            if (bad) {
+              setErr(`The ${bad} link needs to start with https://`);
+              return;
+            }
+            try {
+              await update.mutateAsync({ id: s.id, reviewLinks: f });
+              setEdit(false);
+            } catch (x) {
+              setErr(errMsg(x));
+            }
+          }}
+        >
+          {REVIEW_PLATFORMS.map((p) => (
+            <label key={p}>
+              <span className="label">{p} page</span>
+              <input aria-label={`${p} page`} className="field" type="url" placeholder={PLATFORM_INFO[p].pagePlaceholder} value={f[p] ?? ""} onChange={(e) => setF({ ...f, [p]: e.target.value })} />
+            </label>
+          ))}
+          <label>
+            <span className="label">Google Place ID</span>
+            <input aria-label="Google Place ID" className="field" placeholder="ChIJ…" value={f.googlePlaceId ?? ""} onChange={(e) => setF({ ...f, googlePlaceId: e.target.value })} />
+            <span className="mt-1 block text-[11.5px] text-ink-soft">Optional. Opens the store's Google reviews directly when a review has no link of its own.</span>
+          </label>
+          <div className="flex items-center gap-2 md:col-span-2">
+            <button className="btn btn-ink" disabled={update.isPending}>
+              Save links
+            </button>
+            <button type="button" className="btn btn-line" onClick={() => setEdit(false)}>
+              Cancel
+            </button>
+            {err && <span className="text-[13px] text-oxblood">{err}</span>}
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+type Grid = StoreRow["grid"];
+function TargetGrid({ grid, set }: { grid: Grid; set: Record<keyof Grid, boolean> }) {
+  const cell = (k: keyof Grid) => (
+    <span className={set[k] ? "figure text-[18px]" : "figure text-[18px] text-ink-soft"} title={set[k] ? undefined : "Follows from dinner full time"}>
+      ${grid[k]}
+    </span>
+  );
+  return (
+    <div className="grid grid-cols-[auto_auto_auto] items-baseline gap-x-4 gap-y-0.5 text-[11.5px] text-ink-soft">
+      <span />
+      <span>Full time</span>
+      <span>Part time</span>
+      <span>Dinner</span>
+      {cell("dinnerFull")}
+      {cell("dinnerPart")}
+      <span>Lunch</span>
+      {cell("lunchFull")}
+      {cell("lunchPart")}
     </div>
   );
 }
@@ -153,11 +293,11 @@ function NewStore({ onDone }: { onDone: () => void }) {
       </label>
       <label>
         <span className="label">Store PIN</span>
-        <input aria-label="Store PIN" className="field" required inputMode="numeric" maxLength={6} value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value.replace(/\D/g, "") })} placeholder="4–6 digits" />
+        <input aria-label="Store PIN" className="field" required inputMode="numeric" maxLength={6} value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value.replace(/\D/g, "") })} placeholder="4 to 6 digits" />
       </label>
       <label>
-        <span className="label">Spend per ticket target ($)</span>
-        <input aria-label="Spend per ticket target ($)" className="field" type="number" required min={10} value={f.ticketTarget} onChange={(e) => setF({ ...f, ticketTarget: e.target.value })} />
+        <span className="label">Dinner full time target ($ a ticket)</span>
+        <input aria-label="Dinner full time target" className="field" type="number" required min={10} step="0.01" value={f.ticketTarget} placeholder={String(DEFAULT_TICKET_TARGET)} onChange={(e) => setF({ ...f, ticketTarget: e.target.value })} />
       </label>
       <div className="col-span-2 flex items-center gap-2 md:col-span-5">
         <button className="btn btn-ink" disabled={create.isPending}>

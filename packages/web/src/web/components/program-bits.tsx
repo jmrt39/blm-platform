@@ -1,5 +1,5 @@
 import { Star } from "lucide-react";
-import { MODULE_STATUS_LABEL, type ModuleStatus, type Section } from "../../shared/program";
+import { MODULE_STATUS_LABEL, sectionId, type ModuleStatus, type Section } from "../../shared/program";
 import { STAR_LABELS } from "../../shared/library/rubrics";
 import { cn } from "../lib/utils";
 
@@ -74,7 +74,7 @@ export function ModuleBody({ sections }: { sections: Section[] }) {
   return (
     <div className="space-y-9">
       {sections.map((s, i) => (
-        <section key={i}>
+        <section key={i} id={sectionId(s.h)} className="scroll-mt-24">
           <h2 className="mb-3 font-display text-[24px] leading-tight">{s.h}</h2>
           {s.p && <p className="max-w-[68ch] text-[15px] leading-relaxed text-ink">{s.p}</p>}
           {s.list && (

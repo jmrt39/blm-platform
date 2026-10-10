@@ -5,7 +5,8 @@ import { db } from "../database";
 import * as s from "../database/schema";
 import { assertStore, loadStore, managerBase, viewerBase, type Viewer } from "../lib/access";
 import { addDays, businessDate } from "../lib/time";
-import { actionsFor, computeRatings, currentStep, evaluateLadder, isStrike, today, windowEvents, windowStart } from "../lib/conduct";
+import { actionsFor, computeRatings, currentStep, evaluateLadder, isStrike, memberFrom, today, windowEvents, windowStart } from "../lib/conduct";
+import { planSummaries } from "../lib/plans";
 import { presignPut, screenshotUrl } from "../lib/s3";
 import { demoShot } from "../lib/demo-shot";
 import { SHIFTS, SHIFT_LABEL, STEP_LABEL, clock12, nextOnLadder } from "../../shared/conduct";
@@ -60,16 +61,18 @@ export const conduct = {
     const ids = members.map((m) => m.id);
     const from = windowStart();
     const events = await windowEvents(ids, from);
+    const plans = await planSummaries(ids);
     const acts = await actionsFor(ids);
     const ratings = await computeRatings(storeIds);
     const people = members
       .map((m) => {
-        const ev = events.filter((e) => e.memberId === m.id);
-        const strikes = ev.filter((e) => isStrike(e, from));
+        const mf = memberFrom(m, from);
+        const ev = events.filter((e) => e.memberId === m.id && e.businessDate >= mf);
+        const strikes = ev.filter((e) => isStrike(e, mf));
         const count = (t: string) => strikes.filter((e) => e.type === t).length;
         const late = strikes.filter((e) => e.type === "late");
         const mine = acts.filter((a) => a.memberId === m.id);
-        const step = currentStep(mine, from);
+        const step = currentStep(mine, mf);
         const r = ratings.get(m.id) ?? null;
         const last = strikes.sort((a, b) => b.businessDate.localeCompare(a.businessDate))[0];
         return {
@@ -93,6 +96,8 @@ export const conduct = {
           /** When the oldest strike drops off, so the manager can say "clean by…". */
           rollsOff: strikes.length ? addDays(strikes.reduce((a, e) => (e.businessDate < a ? e.businessDate : a), "9999"), 90) : null,
           rating: r,
+          plan: plans.get(m.id) ?? null,
+          resetOn: m.conductResetOn,
         };
       })
       .sort((a, b) => b.strikes - a.strikes || a.name.localeCompare(b.name));
@@ -142,7 +147,7 @@ export const conduct = {
     const [m] = await db.select().from(s.members).where(eq(s.members.id, input.id));
     if (!m) throw new ORPCError("NOT_FOUND");
     assertCanSee(v, m.id, m.storeId);
-    const from = windowStart();
+    const from = memberFrom(m, windowStart());
     const events = (
       await db
         .select()

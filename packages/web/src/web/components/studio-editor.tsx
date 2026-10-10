@@ -321,7 +321,7 @@ function RewardEditor({ d, set }: { d: RewardD; set: (d: RewardD) => void }) {
         </L>
         <L label="How often">
           <select className="field !h-9" value={d.cadence} onChange={(e) => set({ ...d, cadence: e.target.value as RewardD["cadence"] })}>
-            {["Each shift", "Monthly", "Quarterly", "Annual"].map((c) => (
+            {["Each shift", "Monthly", "Quarterly", "Annual", "Every 10"].map((c) => (
               <option key={c}>{c}</option>
             ))}
           </select>

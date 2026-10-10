@@ -111,7 +111,7 @@ export function GradeNewPage() {
               <div className="text-right">
                 <div className="eyebrow !text-ink-soft">Average</div>
                 <div className={cn("figure text-[30px] leading-none", scored && avg >= GRADE_PASS ? "text-sage" : scored ? "text-oxblood" : "text-ink-soft")}>
-                  {scored ? avg.toFixed(2) : "—"}
+                  {scored ? avg.toFixed(2) : "·"}
                 </div>
               </div>
             </div>

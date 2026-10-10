@@ -19,6 +19,8 @@ export function useSubmitQuiz() {
         void qc.invalidateQueries({ queryKey: orpc.quizzes.results.key() });
         void qc.invalidateQueries({ queryKey: orpc.training.key() });
         void qc.invalidateQueries({ queryKey: orpc.updates.key() });
+        void qc.invalidateQueries({ queryKey: orpc.team.key() });
+        void qc.invalidateQueries({ queryKey: orpc.rewards.key() });
       },
     }),
   );

@@ -8,10 +8,10 @@ import { addDays, businessDate, opensAtFor } from "../lib/time";
 import { certsFor } from "../lib/program";
 import { lastYearCompare, onThisDay } from "../lib/history";
 import { loadLibrary } from "../lib/library";
+import { DEFAULT_TICKET_TARGET, RAMP_DAYS, isCounted, mixTarget, vsTarget } from "../../shared/metrics";
+import { lineTarget } from "../lib/perf";
 
 const FLOOR = new Set(["server", "sommelier"]);
-/** Servers inside their first 30 days are ramping — never ranked against veterans. */
-export const RAMP_DAYS = 30;
 const MIN_SHIFTS = 3;
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -34,11 +34,32 @@ async function compute(storeIds: string[], from: string, to: string) {
         )
     : [];
   const roster = await db
-    .select({ id: s.members.id, hireDate: s.members.hireDate })
+    .select({ id: s.members.id, hireDate: s.members.hireDate, employment: s.members.employment, targetAdjust: s.members.targetAdjust })
     .from(s.members)
     .where(inArray(s.members.storeId, storeIds));
   const hireOf = new Map(roster.map((m) => [m.id, m.hireDate]));
+  const memberOf = new Map(roster.map((m) => [m.id, m]));
   const reportStore = new Map(reports.map((r) => [r.id, r.storeId]));
+  const storeOf = new Map(stores.map((x) => [x.id, x]));
+  /**
+   * What each line should have sold: the target frozen on it (or today's grid for older lines) × its tickets.
+   * Lunch, dinner, part time, full time and bar each carry their own target, so this is what makes a mix comparable.
+   */
+  const expectedOf = (l: (typeof lines)[number]) => {
+    const st = storeOf.get(reportStore.get(l.reportId)!)!;
+    const t = l.target ?? lineTarget(st, l.memberId ? memberOf.get(l.memberId) : null, l.role, l.shift);
+    return t * l.checks;
+  };
+  // The store's own mix: every line on the report, including training and events, because the POS total includes them.
+  const mixBy = new Map<string, { expected: number; checks: number; sales: number }>();
+  for (const l of lines) {
+    const id = reportStore.get(l.reportId)!;
+    const m = mixBy.get(id) ?? { expected: 0, checks: 0, sales: 0 };
+    m.expected += expectedOf(l);
+    m.checks += l.checks;
+    m.sales += l.netSales;
+    mixBy.set(id, m);
+  }
   const checklists = await db
     .select()
     .from(s.checklists)
@@ -88,18 +109,23 @@ async function compute(storeIds: string[], from: string, to: string) {
       shifts: number;
       wine: number;
       desserts: number;
+      /** Σ target × tickets over their counted shifts. */
+      expected: number;
     }
   >();
+  // Only solo serving shifts rank people: training, shadowing, other work, buyouts and short shifts are left out.
   for (const l of lines) {
+    if (!isCounted(l.kind)) continue;
     const storeId = reportStore.get(l.reportId)!;
     const key = l.memberId ?? `${storeId}:${l.name}`;
-    const p = people.get(key) ?? { key, memberId: l.memberId, name: l.name, role: l.role, storeId, sales: 0, covers: 0, checks: 0, shifts: 0, wine: 0, desserts: 0 };
+    const p = people.get(key) ?? { key, memberId: l.memberId, name: l.name, role: l.role, storeId, sales: 0, covers: 0, checks: 0, shifts: 0, wine: 0, desserts: 0, expected: 0 };
     p.sales += l.netSales;
     p.covers += l.covers;
     p.checks += l.checks;
     p.shifts += 1;
     p.wine += l.wineBottles;
     p.desserts += l.desserts;
+    p.expected += expectedOf(l);
     people.set(key, p);
   }
   const leaderboard = [...people.values()]
@@ -112,11 +138,15 @@ async function compute(storeIds: string[], from: string, to: string) {
         tenureDays,
         ramping: tenureDays != null && tenureDays < RAMP_DAYS,
         spt: p.checks ? round2(p.sales / p.checks) : 0,
+        /** Their own ticket weighted target across the shifts they worked. */
+        target: mixTarget(p.expected, p.checks),
+        /** Sales ÷ what their shifts should have sold. The fair way to rank a mix of lunch, dinner, part and full time. */
+        vs: vsTarget(p.sales, p.expected),
         winePer100: p.covers ? (p.wine / p.covers) * 100 : 0,
         dessertAttach: p.covers ? p.desserts / p.covers : 0,
       };
     })
-    .sort((a, b) => b.spt - a.spt);
+    .sort((a, b) => (b.vs ?? 0) - (a.vs ?? 0) || b.spt - a.spt);
 
   const days = Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1);
   const storeName = (id: string) => stores.find((x) => x.id === id)?.name ?? "";
@@ -132,6 +162,8 @@ async function compute(storeIds: string[], from: string, to: string) {
     hireDate: p.hireDate,
     tenureDays: p.tenureDays,
     spt: p.spt,
+    target: p.target,
+    vs: p.vs,
   });
   const gapFor = (storeId: string | null) => {
     const floor = leaderboard.filter((p) => FLOOR.has(p.role) && (!storeId || p.storeId === storeId));
@@ -141,11 +173,17 @@ async function compute(storeIds: string[], from: string, to: string) {
     if (pool.length < 4) return null;
     const top = pool.slice(0, 2);
     const bottom = pool.slice(-2);
-    // Round the displayed figures first, then subtract — what you see is what we computed.
-    const topSpt = round2(top.reduce((a, p) => a + p.sales, 0) / top.reduce((a, p) => a + p.checks, 0));
-    const bottomSpt = round2(bottom.reduce((a, p) => a + p.sales, 0) / bottom.reduce((a, p) => a + p.checks, 0));
-    const bottomTickets = bottom.reduce((a, p) => a + p.checks, 0);
-    const gap = round2(topSpt - bottomSpt);
+    // Ranked and compared on percentage of their own target, so a lunch heavy part timer and a full time closer
+    // are judged on the same footing. The gap is then priced at the priority two's own mix target.
+    const sum = (ps: typeof pool, k: "sales" | "checks" | "expected") => ps.reduce((a, p) => a + p[k], 0);
+    const topSpt = round2(sum(top, "sales") / sum(top, "checks"));
+    const bottomSpt = round2(sum(bottom, "sales") / sum(bottom, "checks"));
+    const topVs = Math.round((vsTarget(sum(top, "sales"), sum(top, "expected")) ?? 0) * 1000) / 1000;
+    const bottomVs = Math.round((vsTarget(sum(bottom, "sales"), sum(bottom, "expected")) ?? 0) * 1000) / 1000;
+    const bottomTickets = sum(bottom, "checks");
+    const bottomTarget = mixTarget(sum(bottom, "expected"), bottomTickets) ?? 0;
+    // Round the displayed figures first, then multiply: what you see is what we computed.
+    const gap = round2(Math.max(0, topVs - bottomVs) * bottomTarget);
     const annualise = 365 / days;
     return {
       top: top.map(person),
@@ -154,6 +192,9 @@ async function compute(storeIds: string[], from: string, to: string) {
       excludedShort,
       topSpt,
       bottomSpt,
+      topVs,
+      bottomVs,
+      bottomTarget,
       gap,
       /** Modeled yearly sales if the priority two closed half the gap. Sales, not profit. */
       annualHalfGap: Math.round((gap / 2) * bottomTickets * annualise),
@@ -180,12 +221,19 @@ async function compute(storeIds: string[], from: string, to: string) {
     const comps = rs.reduce((a, r) => a + r.comps, 0);
     const voids = rs.reduce((a, r) => a + r.voids, 0);
     const discounts = rs.reduce((a, r) => a + r.discounts, 0);
+    const mix = mixBy.get(st.id);
     return {
       id: st.id,
       name: st.name,
       number: st.number,
       timezone: st.timezone,
-      ticketTarget: st.ticketTarget,
+      /** The target for the shifts this store actually ran, ticket weighted. Every store comparison uses this. */
+      ticketTarget: (mix && mixTarget(mix.expected, mix.checks)) || st.ticketTarget,
+      /** The headline: dinner, full time, floor. What the owner set. */
+      headlineTarget: st.ticketTarget,
+      expected: mix?.expected ?? 0,
+      lineChecks: mix?.checks ?? 0,
+      vs: mix ? vsTarget(mix.sales, mix.expected) : null,
       nights: rs.length,
       sales,
       covers,
@@ -206,7 +254,12 @@ async function compute(storeIds: string[], from: string, to: string) {
   const checks = reports.reduce((a, r) => a + r.checks, 0);
   const leak = reports.reduce((a, r) => a + r.comps + r.voids + r.discounts, 0);
   const halfGapTotal = perStore.reduce((a, p) => a + (p.gap?.annualHalfGap ?? 0), 0);
-  const targetW = checks ? round2(perStore.reduce((a, p) => a + p.ticketTarget * p.checks, 0) / checks) : (stores[0]?.ticketTarget ?? 190);
+  const lineChecks = perStore.reduce((a, p) => a + p.lineChecks, 0);
+  const targetW = lineChecks
+    ? round2(perStore.reduce((a, p) => a + p.expected, 0) / lineChecks)
+    : checks
+      ? round2(perStore.reduce((a, p) => a + p.ticketTarget * p.checks, 0) / checks)
+      : (stores[0]?.ticketTarget ?? DEFAULT_TICKET_TARGET);
   return {
     from,
     to,
@@ -337,7 +390,7 @@ export const reports = {
           priority: 2,
           kind: "spend",
           text: `${st.name}: spend per ticket $${st.spt.toFixed(2)} vs target $${st.ticketTarget.toFixed(2)}`,
-          detail: `$${(st.ticketTarget - st.spt).toFixed(2)} below the store's own target last night`,
+          detail: `$${(st.ticketTarget - st.spt).toFixed(2)} below the target for last night's mix of shifts`,
           href: `/reports?store=${st.id}`,
           cta: "View findings",
         });
@@ -349,7 +402,7 @@ export const reports = {
           priority: 2,
           kind: "coaching",
           text: `Coach ${p.name} (${st.name})`,
-          detail: `Spend per ticket $${p.spt.toFixed(2)} over ${p.shifts} shifts · ${p.tenureDays ?? "?"} days in · schedule a graded floor exercise`,
+          detail: `${p.vs != null ? `${Math.round(p.vs * 100)}% of their own target ($${p.spt.toFixed(2)} vs $${(p.target ?? 0).toFixed(2)})` : `Spend per ticket $${p.spt.toFixed(2)}`} over ${p.shifts} shifts · ${p.tenureDays ?? "?"} days in · schedule a graded floor exercise`,
           href: `/grading/new?member=${p.memberId}&rubric=${lib.floorRubric?.slug ?? "floor-service"}`,
           cta: "Grade a table",
         });

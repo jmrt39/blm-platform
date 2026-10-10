@@ -2,6 +2,7 @@
 import { db } from "../database";
 import * as s from "../database/schema";
 import { DEFAULT_CLOSING, DEFAULT_OPENING, initialsOf } from "../../shared/domain";
+import { targetFor, targetGrid } from "../../shared/metrics";
 import { insertChunked, onboardingRows } from "./core";
 import { addDays, businessDate, dueAtFor, opensAtFor, zoned } from "./time";
 import { uniqueStoreNumber } from "./access";
@@ -19,6 +20,8 @@ type Person = {
   ppa?: number;
   /** Per day improvement in sales per cover (new hires ramping up). */
   ramp?: number;
+  /** Part time staff work fewer, smaller sections and have their own target. */
+  pt?: boolean;
   initials?: string;
 };
 
@@ -42,7 +45,7 @@ const SPECS: StoreSpec[] = [
     city: "Main Street",
     pin: "1906",
     coversBase: 118,
-    ticketTarget: 190,
+    ticketTarget: 78,
     late: 0.06,
     missed: 0.0,
     people: [
@@ -55,7 +58,7 @@ const SPECS: StoreSpec[] = [
       { name: "Maya Collins", role: "server", pin: "7182", tenure: 1300, trainer: true, ppa: 89.4 },
       { name: "Sam Whitaker", role: "server", pin: "7745", tenure: 690, ppa: 86.1 },
       { name: "Nadia Haddad", role: "server", pin: "8031", tenure: 410, ppa: 76.8 },
-      { name: "Daniel Okafor", role: "server", pin: "8392", tenure: 260, ppa: 71.2 },
+      { name: "Daniel Okafor", role: "server", pin: "8392", tenure: 260, ppa: 71.2, pt: true },
       { name: "Elena Vasquez", role: "sommelier", pin: "9104", tenure: 980 },
       { name: "Jordan Lee", role: "host", pin: "9233", tenure: 340 },
       { name: "Theo Grant", role: "busser", pin: "9377", tenure: 150 },
@@ -69,7 +72,7 @@ const SPECS: StoreSpec[] = [
     city: "Harbor District",
     pin: "2210",
     coversBase: 96,
-    ticketTarget: 178,
+    ticketTarget: 73,
     late: 0.14,
     missed: 0.05,
     people: [
@@ -78,11 +81,11 @@ const SPECS: StoreSpec[] = [
       { name: "Rafael Duarte", role: "bar_manager", pin: "6145", tenure: 700 },
       { name: "Olivia Chen", role: "server", pin: "7011", tenure: 840, trainer: true, ppa: 82.3 },
       { name: "Isaac Turner", role: "server", pin: "7120", tenure: 530, ppa: 77.4 },
-      { name: "Sofia Marino", role: "server", pin: "7234", tenure: 300, ppa: 70.6 },
-      { name: "Jamal Harris", role: "server", pin: "7348", tenure: 190, ppa: 66.9 },
+      { name: "Sofia Marino", role: "server", pin: "7234", tenure: 300, ppa: 70.6, pt: true },
+      { name: "Jamal Harris", role: "server", pin: "7348", tenure: 190, ppa: 66.9, pt: true },
       { name: "Lena Novak", role: "server", pin: "7459", tenure: 12, ppa: 63.2, ramp: 0.3 },
       { name: "Kiera Walsh", role: "bartender", pin: "7563", tenure: 610, ppa: 49 },
-      { name: "Mateo Silva", role: "bartender", pin: "7677", tenure: 230, ppa: 45 },
+      { name: "Mateo Silva", role: "bartender", pin: "7677", tenure: 230, ppa: 45, pt: true },
       { name: "Julien Moreau", role: "sommelier", pin: "7781", tenure: 450 },
       { name: "Ava Patel", role: "host", pin: "7895", tenure: 160 },
       { name: "Noah Reed", role: "busser", pin: "7906", tenure: 95 },
@@ -93,7 +96,7 @@ const SPECS: StoreSpec[] = [
     city: "Hillcrest",
     pin: "3315",
     coversBase: 104,
-    ticketTarget: 198,
+    ticketTarget: 82,
     late: 0.08,
     missed: 0.02,
     people: [
@@ -102,10 +105,10 @@ const SPECS: StoreSpec[] = [
       { name: "Lucas Bennett", role: "server", pin: "8014", tenure: 760, trainer: true, ppa: 91.2 },
       { name: "Emma Fischer", role: "server", pin: "8125", tenure: 620, ppa: 86.5 },
       { name: "Zoe Alvarez", role: "server", pin: "8236", tenure: 330, ppa: 80.1 },
-      { name: "Ryan Doyle", role: "server", pin: "8347", tenure: 210, ppa: 74.4 },
+      { name: "Ryan Doyle", role: "server", pin: "8347", tenure: 210, ppa: 74.4, pt: true },
       { name: "Aaliyah Jordan", role: "server", pin: "8458", tenure: 140, ppa: 77.9 },
       { name: "Finn O'Connor", role: "bartender", pin: "8569", tenure: 870, trainer: true, ppa: 56 },
-      { name: "Ines Ferreira", role: "bartender", pin: "8670", tenure: 280, ppa: 50 },
+      { name: "Ines Ferreira", role: "bartender", pin: "8670", tenure: 280, ppa: 50, pt: true },
       { name: "Mia Russo", role: "host", pin: "8781", tenure: 120 },
       { name: "Caleb Ward", role: "food_runner", pin: "8892", tenure: 400 },
       { name: "Diego Herrera", role: "barback", pin: "8903", tenure: 50 },
@@ -181,6 +184,7 @@ export async function seedDemoOrg(user: { id: string; name: string; email: strin
       phone: null as string | null,
       pin: p.pin,
       hireDate: addDays(today, -p.tenure),
+      employment: (p.pt ? "part_time" : "full_time") as "part_time" | "full_time",
       spec: p,
     }));
     await insertChunked(
@@ -323,6 +327,14 @@ export async function seedDemoOrg(user: { id: string; name: string; email: strin
       let floorCovers = covers - (bar.length ? barCovers : 0);
       const lines: (typeof s.shiftReportLines.$inferInsert)[] = [];
       const reportId = crypto.randomUUID();
+      const grid = targetGrid(spec);
+      // A buyout now and then: nobody's ticket average counts that night.
+      const buyout = weekend && d > 3 && rand() < 0.05;
+      // New hires shadow for their first nights and the trainer on with them is training, so neither counts.
+      const shadowing = floor.filter((p) => p.spec.ramp && p.spec.tenure - d < 8);
+      const kindOf = (p: (typeof floor)[number]) =>
+        buyout ? "event" : shadowing.includes(p) ? "being_trained" : p.isTrainer && shadowing.some((x) => x.role === p.role) ? "training_other" : "solo";
+      const frozen = (p: (typeof floor)[number]) => targetFor(grid, { role: p.role, employment: p.employment, targetAdjust: null }, "dinner");
       const weights = floor.map(() => 0.8 + rand() * 0.4);
       const wsum = weights.reduce((a, b) => a + b, 0);
       floor.forEach((p, i) => {
@@ -338,7 +350,10 @@ export async function seedDemoOrg(user: { id: string; name: string; email: strin
           role: p.role,
           covers: Math.max(c, 0),
           netSales: round2(Math.max(c, 0) * ppa),
-          checks: Math.max(1, Math.round(c / (2.3 + rand() * 0.6))),
+          checks: Math.max(1, Math.round(c / (0.94 + rand() * 0.26))),
+          shift: "dinner",
+          kind: kindOf(p),
+          target: frozen(p),
           wineBottles: Math.round(c * (0.06 + (ppa - 60) / 600) * (0.8 + rand() * 0.4)),
           desserts: Math.round(c * (0.18 + (ppa - 60) / 300) * (0.8 + rand() * 0.4)),
         });
@@ -353,7 +368,10 @@ export async function seedDemoOrg(user: { id: string; name: string; email: strin
           role: p.role,
           covers: c,
           netSales: round2(c * ppa),
-          checks: Math.max(1, Math.round(c / 1.6)),
+          checks: Math.max(1, Math.round(c * 1.52)),
+          shift: "dinner",
+          kind: buyout ? "event" : "solo",
+          target: frozen(p),
           wineBottles: Math.round(c * 0.03),
           desserts: Math.round(c * 0.05),
         });
@@ -372,7 +390,7 @@ export async function seedDemoOrg(user: { id: string; name: string; email: strin
         discounts: round2(netSales * (0.005 + rand() * 0.008)),
         walkouts: rand() < 0.04 ? 1 : 0,
         eightySixed: rand() < 0.3 ? ["Dover sole", "Halibut", "Oysters", "Chocolate soufflé", "2016 Grand Vin"][Math.floor(rand() * 5)]! : "",
-        notes: d === 1 && si === 0 ? "Strong Friday-level turn on a weeknight. Camille ran section 4 solo for the first full turn — clean. Two VIP anniversaries, both comped dessert." : "",
+        notes: d === 1 && si === 0 ? "Strong Friday level turn on a weeknight. Camille ran section 4 solo for the first full turn, clean. Two VIP anniversaries, both comped dessert." : "",
         source: rand() < 0.6 ? "csv" : "manual",
         submittedById: manager.id,
         submittedByName: manager.name,

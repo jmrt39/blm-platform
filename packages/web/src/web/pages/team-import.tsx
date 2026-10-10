@@ -8,13 +8,16 @@ import { ROLE_LABEL, type StoreRole } from "../../shared/domain";
 import { errMsg } from "../lib/format";
 import { cn } from "../lib/utils";
 
-const SAMPLE = `name,role,hire date,email,phone,trainer
-Maya Torres,Server,2024-03-11,maya@example.com,555-0101,yes
-Jonah Price,Bartender,04/22/2023,,555-0102,no
-Ava Lindqvist,Host,2026-09-28,,,
-Theo Banks,Food Runner,2025-01-06,,,`;
+const SAMPLE = `name,role,hire date,email,phone,trainer,hours
+Maya Torres,Server,2024-03-11,maya@example.com,555-0101,yes,full time
+Jonah Price,Bartender,04/22/2023,,555-0102,no,part time
+Ava Lindqvist,Host,2026-09-28,,,,PT
+Theo Banks,Food Runner,2025-01-06,,,,FT`;
 
-type Parsed = { name: string; role: string; hireDate: string; email: string; phone: string; isTrainer: boolean; problem?: string };
+type Parsed = { name: string; role: string; hireDate: string; email: string; phone: string; isTrainer: boolean; employment: "full_time" | "part_time"; problem?: string };
+
+/** "Part time", "PT", "part", "P" read as part time. Anything else, or blank, is full time. */
+const partTime = (raw: string) => /^(p|pt|part|part[ _]?time|parttime)$/i.test(raw.trim());
 
 /** Minimal CSV splitter: handles quoted fields with commas and doubled quotes. Tabs work too (pasted from a sheet). */
 function splitLine(line: string): string[] {
@@ -65,6 +68,13 @@ const HEADERS: Record<string, keyof Parsed> = {
   phone: "phone",
   mobile: "phone",
   trainer: "isTrainer",
+  hours: "employment",
+  status: "employment",
+  employment: "employment",
+  "full/part time": "employment",
+  "full or part time": "employment",
+  "ft/pt": "employment",
+  type: "employment",
 };
 
 function parse(text: string): Parsed[] {
@@ -77,10 +87,11 @@ function parse(text: string): Parsed[] {
     : ["name", "role", "hireDate", "email", "phone", "isTrainer"];
   return lines.slice(hasHeader ? 1 : 0).map((l) => {
     const cells = splitLine(l);
-    const r: Parsed = { name: "", role: "", hireDate: "", email: "", phone: "", isTrainer: false };
+    const r: Parsed = { name: "", role: "", hireDate: "", email: "", phone: "", isTrainer: false, employment: "full_time" };
     order.forEach((k, i) => {
       const val = cells[i] ?? "";
       if (k === "isTrainer") r.isTrainer = /^(y|yes|true|1|x)$/i.test(val);
+      else if (k === "employment") r.employment = partTime(val) ? "part_time" : "full_time";
       else if (k !== "problem") r[k] = val;
     });
     const iso = isoDate(r.hireDate);
@@ -113,7 +124,7 @@ export function TeamImportPage() {
     return (
       <Page eyebrow={<Link href="/team" className="hover:underline">Team</Link>} title={<>{res.created.length} people added to {store?.name}.</>}>
         <p className="mb-6 max-w-2xl text-[14.5px] leading-relaxed">
-          Each person signs in on the floor with store number <b className="figure">{store?.number}</b> and the personal PIN below. Print this or hand them out at line-up; PINs only work at this store.
+          Each person signs in on the floor with store number <b className="figure">{store?.number}</b> and the personal PIN below. Print this or hand them out at line up; PINs only work at this store.
           {res.skipped > 0 && <> {res.skipped} already on the roster were skipped.</>}
         </p>
         {res.errors.length > 0 && (
@@ -224,6 +235,7 @@ export function TeamImportPage() {
                       <th className="px-3 py-2">Hired</th>
                       <th className="px-3 py-2">Email</th>
                       <th className="px-3 py-2">Trainer</th>
+                      <th className="px-3 py-2">Hours</th>
                       <th className="px-3 py-2">
                         <span className="sr-only">Status</span>
                       </th>
@@ -237,6 +249,7 @@ export function TeamImportPage() {
                         <td className="figure px-3 py-2">{r.hireDate}</td>
                         <td className="px-3 py-2">{r.email}</td>
                         <td className="px-3 py-2">{r.isTrainer ? "Yes" : ""}</td>
+                        <td className="px-3 py-2">{r.employment === "part_time" ? "Part time" : "Full time"}</td>
                         <td className="px-3 py-2 text-[12px]">{r.problem ? <span className="text-oxblood">{r.problem}</span> : <Check className="size-4 text-gold-deep" />}</td>
                       </tr>
                     ))}
@@ -258,7 +271,7 @@ export function TeamImportPage() {
         <aside className="rounded-[2px] bg-paper-2 p-6 text-[13.5px] leading-relaxed">
           <div className="eyebrow mb-2">How it works</div>
           <ul className="space-y-2">
-            <li>Export the roster from your scheduler (7shifts, HotSchedules, Homebase) or POS. Columns: name, role, hire date, email, phone, trainer.</li>
+            <li>Export the roster from your scheduler (7shifts, HotSchedules, Homebase) or POS. Columns: name, role, hire date, email, phone, trainer, hours. Hours is full time or part time (FT or PT works); blank means full time. Part time staff are measured against the part time target.</li>
             <li>Roles can be written plainly: Server, Bartender, Host, Food Runner, Busser, Sommelier, Barback, GM, Floor Manager.</li>
             <li>Hire dates matter. Anyone under 30 days shows as ramping and is not ranked; anyone under 90 days gets a 30/60/90 plan.</li>
             <li>Everyone gets a personal PIN. People already on the roster are skipped, so running it twice is safe.</li>

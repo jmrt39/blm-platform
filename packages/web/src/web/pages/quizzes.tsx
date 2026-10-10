@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "wouter";
 import { motion } from "motion/react";
 import { ArrowLeft, Check, RotateCcw, X } from "lucide-react";
@@ -10,6 +10,16 @@ import { StoreTabs } from "./checklists";
 import { useQuiz, useQuizResults, useQuizzes, useSubmitQuiz } from "../queries/quizzes";
 import { errMsg, pct } from "../lib/format";
 import { cn } from "../lib/utils";
+import { sectionId } from "../../shared/program";
+
+function readSaved(key: string): { answers: Record<string, number>; i: number } | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as { answers: Record<string, number>; i: number }) : null;
+  } catch {
+    return null;
+  }
+}
 
 const quizHref = (slug: string) => `/quizzes/${encodeURIComponent(slug)}`;
 
@@ -48,7 +58,7 @@ export default function QuizzesPage() {
                 sub="People who passed ÷ people who tried"
               />
               <Stat label="Attempts" value={results.data?.recent.length ? `${results.data.recent.length}+` : "0"} sub="Recent, all checks" />
-              <Stat label="Hardest question" value={results.data?.hardest[0] ? pct(results.data.hardest[0].rate) : "—"} tone="bad" sub="Right first time" />
+              <Stat label="Hardest question" value={results.data?.hardest[0] ? pct(results.data.hardest[0].rate) : "·"} tone="bad" sub="Right first time" />
             </div>
           )}
 
@@ -144,16 +154,37 @@ export function QuizTake() {
   const v = useViewer();
   const q = useQuiz(slug);
   const submit = useSubmitQuiz();
-  const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [i, setI] = useState(0);
+  const key = `blm.quiz.${v.me.member?.id ?? "preview"}.${slug}`;
+  const saved = useMemo(() => readSaved(key), [key]);
+  const [answers, setAnswersRaw] = useState<Record<string, number>>(saved?.answers ?? {});
+  const [i, setIRaw] = useState(saved?.i ?? 0);
   const [result, setResult] = useState<Result | null>(null);
+  const persist = (a: Record<string, number>, n: number) => {
+    try {
+      localStorage.setItem(key, JSON.stringify({ answers: a, i: n }));
+    } catch {
+      /* private mode: resume just won't survive a reload */
+    }
+  };
+  const setAnswers = (f: (a: Record<string, number>) => Record<string, number>) =>
+    setAnswersRaw((a) => {
+      const next = f(a);
+      persist(next, i);
+      return next;
+    });
+  const setI = (n: number | ((x: number) => number)) =>
+    setIRaw((x) => {
+      const next = typeof n === "function" ? n(x) : n;
+      persist(answers, next);
+      return next;
+    });
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorNote error={q.error} />;
   const d = q.data!;
   const total = d.questions.length;
-  const answered = Object.keys(answers).length;
+  const answered = d.questions.filter((x) => answers[x.id] != null).length;
   const canTake = !!v.me.member;
-  const restart = () => (setAnswers({}), setI(0), setResult(null), submit.reset());
+  const restart = () => (localStorage.removeItem(key), setAnswersRaw({}), setIRaw(0), setResult(null), submit.reset());
 
   return (
     <Page
@@ -174,6 +205,7 @@ export function QuizTake() {
               <div className="mt-1 text-[13px] text-ink-soft">
                 {result.correct} of {result.total} right · {result.passed ? "Passed. It's on your training record." : `${Math.round(d.passMark * 100)}% passes. Read the why on each miss and try again.`}
               </div>
+              {result.onboardingTicked > 0 && <div className="mt-1 text-[13px] font-semibold text-sage">Your onboarding step is ticked off.</div>}
             </div>
             <div className="flex gap-2">
               <button onClick={restart} className="btn btn-line">
@@ -200,6 +232,11 @@ export function QuizTake() {
                       {!ok && <div className="mt-1.5 text-[13px] text-oxblood line-through decoration-1">{r.choices[r.chose]}</div>}
                       <div className="mt-1 text-[13px] font-semibold text-sage">{r.choices[r.answer]}</div>
                       {r.why && <div className="mt-1.5 text-[12.5px] italic text-ink-soft">{r.why}</div>}
+                      {r.see && d.module && (
+                        <Link href={`/training/${d.module}#${sectionId(r.see)}`} className="mt-1.5 inline-block text-[12px] font-semibold text-gold-deep hover:underline">
+                          In the module: {r.see}
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -212,6 +249,23 @@ export function QuizTake() {
           {!canTake && (
             <div className="mb-6 rounded-[2px] border border-gold-deep/50 bg-gold/10 px-4 py-3 text-[13px]">
               You're previewing. Staff take checks on their phone after PIN sign-in; use View as to try it as a server.
+            </div>
+          )}
+          {saved && Object.keys(saved.answers).length > 0 && answered > 0 && (
+            <div className="mb-4 text-[12.5px] text-ink-soft">
+              Picked up where you left off: {answered} of {total} answered.{" "}
+              <button type="button" className="font-semibold underline" onClick={restart}>
+                Start over
+              </button>
+            </div>
+          )}
+          {d.module && d.moduleTitle && answered === 0 && (
+            <div className="mb-5 text-[13px] text-ink-soft">
+              Every question comes from{" "}
+              <Link href={`/training/${d.module}`} className="font-semibold text-gold-deep underline">
+                {d.moduleTitle}
+              </Link>
+              . Read it first if you have not.
             </div>
           )}
           <div className="mb-6 flex gap-1">
@@ -277,6 +331,7 @@ export function QuizTake() {
                 onClick={async () => {
                   const r = await submit.mutateAsync({ slug, answers }).catch(() => null);
                   if (r) {
+                    localStorage.removeItem(key);
                     setResult(r);
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }

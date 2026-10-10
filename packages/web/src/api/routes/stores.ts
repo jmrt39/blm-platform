@@ -1,4 +1,4 @@
-import { DEFAULT_TICKET_TARGET } from "../../shared/metrics";
+import { DEFAULT_TICKET_TARGET, targetGrid } from "../../shared/metrics";
 import { z } from "zod";
 import { loadLibrary } from "../lib/library";
 import { ORPCError } from "@orpc/server";
@@ -13,6 +13,14 @@ const ownerOnly = leadershipBase.use(async ({ context, next }) => {
   if (context.viewer.level !== "owner") throw new ORPCError("FORBIDDEN", { message: "Owners only." });
   return next();
 });
+
+/** A review page link: blank clears it. Only http(s), so a reply link can never run script. */
+const url = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((x) => !x || /^https?:\/\//i.test(x), "Links start with https://")
+  .optional();
 
 export const stores = {
   list: viewerBase.handler(async ({ context }) => {
@@ -31,8 +39,15 @@ export const stores = {
         city: r.city,
         pin: v.level === "owner" || v.level === "area" ? r.pin : null,
         ticketTarget: r.ticketTarget,
+        trainingRate: r.trainingRate,
+        /** Blank cells follow from the dinner full time target. */
+        dinnerPartTarget: r.dinnerPartTarget,
+        lunchTarget: r.lunchTarget,
+        lunchPartTarget: r.lunchPartTarget,
+        grid: targetGrid(r),
         openingDueBy: r.openingDueBy,
         closingDueBy: r.closingDueBy,
+        reviewLinks: r.reviewLinks ?? {},
         headcount: members.filter((m) => m.storeId === r.id).length,
         managers: members.filter((m) => m.storeId === r.id && isManagementRole(m.role)).map((m) => ({ name: m.name, role: m.role })),
       }))
@@ -44,7 +59,7 @@ export const stores = {
       z.object({
         name: z.string().min(2).max(80),
         city: z.string().max(80).default(""),
-        pin: z.string().regex(/^\d{4,6}$/, "Store PIN must be 4–6 digits"),
+        pin: z.string().regex(/^\d{4,6}$/, "Store PIN must be 4 to 6 digits"),
         ticketTarget: z.number().min(10).max(2000).default(DEFAULT_TICKET_TARGET),
       }),
     )
@@ -67,6 +82,10 @@ export const stores = {
           .regex(/^\d{4,6}$/)
           .optional(),
         ticketTarget: z.number().min(10).max(2000).optional(),
+        trainingRate: z.number().min(1).max(200).optional(),
+        dinnerPartTarget: z.number().min(5).max(2000).nullish(),
+        lunchTarget: z.number().min(5).max(2000).nullish(),
+        lunchPartTarget: z.number().min(5).max(2000).nullish(),
         openingDueBy: z
           .string()
           .regex(/^\d{2}:\d{2}$/)
@@ -75,13 +94,24 @@ export const stores = {
           .string()
           .regex(/^\d{2}:\d{2}$/)
           .optional(),
+        reviewLinks: z
+          .object({
+            Google: url,
+            Yelp: url,
+            OpenTable: url,
+            Tripadvisor: url,
+            Resy: url,
+            googlePlaceId: z.string().trim().max(200).optional(),
+          })
+          .optional(),
       }),
     )
     .handler(async ({ input, context }) => {
       const v = context.viewer;
       if (!v.storeIds.includes(input.id)) throw new ORPCError("FORBIDDEN");
       if (v.level === "manager" && v.member?.role !== "gm") throw new ORPCError("FORBIDDEN", { message: "GM or owner only." });
-      const { id, ...patch } = input;
+      const { id, reviewLinks, ...rest } = input;
+      const patch = reviewLinks ? { ...rest, reviewLinks: Object.fromEntries(Object.entries(reviewLinks).filter(([, x]) => !!x)) } : rest;
       await db.update(s.stores).set(patch).where(eq(s.stores.id, id));
       return { ok: true };
     }),

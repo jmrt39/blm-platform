@@ -49,6 +49,70 @@ export const STEP_SHORT: Record<Step, string> = {
   termination: "Termination",
 };
 
+/** Steps that block every reward for any period they were active in. */
+export const BLOCKING_STEPS: readonly Step[] = ["written", "plan", "termination"];
+
+/* ── Performance plan ─────────────────────────────────────────────────────────────────── */
+
+/** Shifts a person needs to show to come off a performance plan. */
+export const PLAN_SHIFTS = 10;
+/** In average mode, the last ten logged shifts must average at least this. */
+export const PLAN_AVERAGE = 90;
+export const PLAN_MODES = ["total", "in_a_row", "average"] as const;
+export type PlanMode = (typeof PLAN_MODES)[number];
+export const PLAN_MODE_LABEL: Record<PlanMode, string> = {
+  total: "10 excellent shifts in total",
+  in_a_row: "10 excellent shifts in a row",
+  average: `Average of the last 10 shifts at ${PLAN_AVERAGE}% or better`,
+};
+export const PLAN_MODE_HELP: Record<PlanMode, string> = {
+  total: "A shift that falls short just doesn't count. It never resets the count.",
+  in_a_row: "A shift that falls short starts the count again.",
+  average: "Every logged shift is scored. Graduation needs at least 10 shifts and the last 10 averaging the bar.",
+};
+/** What every plan shift is checked against. "grade" is skipped when no floor grade was given that shift. */
+export const PLAN_CHECKS = ["onTime", "dress", "noStrike", "duties", "grade", "standards", "improvement"] as const;
+export type PlanCheck = (typeof PLAN_CHECKS)[number];
+export const PLAN_CHECK_LABEL: Record<PlanCheck, string> = {
+  onTime: "On time",
+  dress: "In full dress code",
+  noStrike: "No new strike",
+  duties: "Opening or closing duties signed off",
+  grade: "Floor grade at or above standard",
+  standards: "Met the standards across the board",
+  improvement: "Noticeable, measurable improvement in the plan's focus areas",
+};
+export type PlanChecks = Record<PlanCheck, boolean | null>;
+/** Share of the checks that apply which were met, 0 to 100. */
+export function planScore(c: PlanChecks) {
+  const vals = PLAN_CHECKS.map((k) => c[k]).filter((v): v is boolean => v != null);
+  return vals.length ? Math.round((vals.filter(Boolean).length / vals.length) * 100) : 0;
+}
+export const planShiftMet = (c: PlanChecks) => PLAN_CHECKS.every((k) => c[k] !== false);
+
+/** Progress toward graduating, oldest shift first in. */
+export function planProgress(mode: PlanMode, shifts: { checks: PlanChecks }[]) {
+  const met = shifts.map((x) => planShiftMet(x.checks));
+  const scores = shifts.map((x) => planScore(x.checks));
+  if (mode === "total") {
+    const n = met.filter(Boolean).length;
+    return { count: Math.min(n, PLAN_SHIFTS), ready: n >= PLAN_SHIFTS, average: null as number | null, summary: `${Math.min(n, PLAN_SHIFTS)} of ${PLAN_SHIFTS} excellent shifts` };
+  }
+  if (mode === "in_a_row") {
+    let run = 0;
+    for (const m of met) run = m ? run + 1 : 0;
+    return { count: Math.min(run, PLAN_SHIFTS), ready: run >= PLAN_SHIFTS, average: null as number | null, summary: `${Math.min(run, PLAN_SHIFTS)} of ${PLAN_SHIFTS} in a row` };
+  }
+  const last = scores.slice(-PLAN_SHIFTS);
+  const avg = last.length ? Math.round(last.reduce((a, b) => a + b, 0) / last.length) : null;
+  return {
+    count: Math.min(shifts.length, PLAN_SHIFTS),
+    ready: shifts.length >= PLAN_SHIFTS && (avg ?? 0) >= PLAN_AVERAGE,
+    average: avg,
+    summary: `${Math.min(shifts.length, PLAN_SHIFTS)} of ${PLAN_SHIFTS} shifts logged${avg == null ? "" : ` · averaging ${avg}%`}`,
+  };
+}
+
 /** 3 strikes = verbal; after that each new strike moves up one step. */
 export function stepForStrikes(strikes: number): Step | null {
   if (strikes >= 6) return "termination";

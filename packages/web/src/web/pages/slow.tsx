@@ -1,3 +1,4 @@
+import { pctOfTarget } from "../../shared/metrics";
 import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowRightLeft, Moon, Undo2, X } from "lucide-react";
@@ -138,15 +139,19 @@ function Forecast({ b, expected, setExpected }: { b: Board; expected: number | n
         <Stat label="Hours protected" value={`${b.protectedHours}h`} tone="good" sub="Sister stores, outreach, training · 4 weeks" />
         <Stat label="Hours sent home" value={`${b.cutHours}h`} tone="bad" sub="Volunteered or cut · 4 weeks" />
         <Stat
-          label="Spend per ticket of who stays"
-          value={b.keepAvg != null ? money2(b.keepAvg) : "—"}
+          label="Who stays, vs own target"
+          value={pctOfTarget(b.keepAvg)}
           tone="gold"
-          sub={b.allAvg != null ? `The ${b.keepCount} who stay vs ${money2(b.allAvg)} for the whole floor` : "Needs shift reports"}
+          sub={b.allAvg != null ? `The ${b.keepCount} who stay vs ${pctOfTarget(b.allAvg)} for the whole floor` : "Needs shift reports"}
         />
         <Stat
           label="Worth tonight"
-          value={b.keepAvg != null && b.allAvg != null ? money2(Math.max(0, (b.keepAvg - b.allAvg) * b.expected)) : "—"}
-          sub="Extra sales from putting tables with your best sellers"
+          value={b.liftPerTicket ? money2(b.liftPerTicket * b.expected) : "·"}
+          sub={
+            b.liftPerTicket
+              ? `Extra sales from putting tables with your best sellers, priced at tonight's ${money2(b.tonightTarget)} target`
+              : "Nobody goes home tonight, so the whole floor works the book"
+          }
         />
       </div>
     </div>
@@ -313,8 +318,8 @@ function PersonRow({ p, rank, suggested, b, shift }: { p: Person; rank: number; 
             this week
           </div>
           <div>
-            <div className="figure text-[15px] text-ink">{p.spt != null ? money2(p.spt) : "—"}</div>
-            per ticket
+            <div className="figure text-[15px] text-ink">{pctOfTarget(p.vs)}</div>
+            {p.spt != null ? `${money2(p.spt)} vs ${money2(p.target ?? 0)}` : "of own target"}
           </div>
           <div>
             <div className="figure text-[15px] text-ink">{p.lost28}h</div>

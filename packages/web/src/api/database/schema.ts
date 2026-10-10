@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import type { ReviewLinks } from "../../shared/reviews";
 
 export * from "./auth-schema";
 
@@ -46,9 +47,17 @@ export const stores = sqliteTable(
     pin: text("pin").notNull(),
     timezone: text("timezone").notNull().default("America/New_York"),
     /** Spend per ticket target (net sales ÷ tickets). Column name kept from v1; always written explicitly. */
-    ticketTarget: real("ppa_target").notNull().default(150),
+    ticketTarget: real("ppa_target").notNull().default(78),
+    /** The other three cells of the target grid. Null follows from the dinner full time target (see targetGrid). */
+    dinnerPartTarget: real("dinner_part_target"),
+    lunchTarget: real("lunch_target"),
+    lunchPartTarget: real("lunch_part_target"),
+    /** Hourly training rate, used to value a paid day off (8 hours) in cash. */
+    trainingRate: real("training_rate").notNull().default(15),
     openingDueBy: text("opening_due_by").notNull().default("11:00"),
     closingDueBy: text("closing_due_by").notNull().default("01:00"),
+    /** The store's page on Google, Yelp, OpenTable, Tripadvisor and Resy, plus Google's Place ID. Where replies open. */
+    reviewLinks: text("review_links", { mode: "json" }).$type<ReviewLinks>(),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("stores_number_uq").on(t.number), index("stores_org_idx").on(t.orgId)],
@@ -70,6 +79,12 @@ export const members = sqliteTable(
     pin: text("pin").notNull(),
     userId: text("user_id"),
     hireDate: text("hire_date").notNull(),
+    employment: text("employment", { enum: ["full_time", "part_time"] }).notNull().default("full_time"),
+    /** Personal target adjustment in dollars, set by the GM with a reason (for example a veteran given the large parties). */
+    targetAdjust: real("target_adjust"),
+    targetNote: text("target_note").notNull().default(""),
+    /** Graduated from a performance plan on this business date: strikes and write ups before it no longer count. */
+    conductResetOn: text("conduct_reset_on"),
     status: text("status", { enum: ["active", "departed"] }).notNull().default("active"),
     departedOn: text("departed_on"),
     createdAt: createdAt(),
@@ -199,6 +214,11 @@ export const shiftReportLines = sqliteTable(
     checks: integer("checks").notNull().default(0),
     wineBottles: integer("wine_bottles").notNull().default(0),
     desserts: integer("desserts").notNull().default(0),
+    shift: text("shift", { enum: ["lunch", "dinner"] }).notNull().default("dinner"),
+    /** How they worked it. Only "solo" counts toward averages, minimums and rewards. */
+    kind: text("kind", { enum: ["solo", "training_other", "being_trained", "other_work", "event", "short"] }).notNull().default("solo"),
+    /** The target that applied to this person on this shift, frozen when the report was saved. */
+    target: real("target"),
   },
   (t) => [index("srl_report_idx").on(t.reportId), index("srl_member_idx").on(t.memberId)],
 );
@@ -336,9 +356,36 @@ export const disciplinaryActions = sqliteTable(
     ownerNote: text("owner_note"),
     ownerDecidedAt: integer("owner_decided_at", { mode: "timestamp_ms" }),
     voidReason: text("void_reason"),
+    /** Performance plan only: how graduation is judged, and the areas the plan was written for. */
+    planMode: text("plan_mode", { enum: ["total", "in_a_row", "average"] }),
+    planFocus: text("plan_focus").notNull().default(""),
+    graduatedOn: text("graduated_on"),
+    graduatedByName: text("graduated_by_name"),
+    graduationSignature: text("graduation_signature"),
     createdAt: createdAt(),
   },
   (t) => [index("discipline_member_idx").on(t.memberId), index("discipline_store_idx").on(t.storeId)],
+);
+
+/** One shift reviewed against a performance plan. Ten good ones (by the plan's mode) and the person graduates. */
+export const planShifts = sqliteTable(
+  "plan_shifts",
+  {
+    id: id(),
+    actionId: text("action_id").notNull(),
+    memberId: text("member_id").notNull(),
+    storeId: text("store_id").notNull(),
+    businessDate: text("business_date").notNull(),
+    shift: text("shift", { enum: ["lunch", "dinner"] }).notNull(),
+    checks: text("checks", { mode: "json" }).$type<Record<string, boolean | null>>().notNull(),
+    score: integer("score").notNull(),
+    met: integer("met", { mode: "boolean" }).notNull(),
+    note: text("note").notNull().default(""),
+    managerName: text("manager_name").notNull(),
+    signature: text("signature").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("plan_shifts_action_idx").on(t.actionId), uniqueIndex("plan_shifts_uq").on(t.actionId, t.businessDate, t.shift)],
 );
 
 /* ───────────────────────── Checkpoint B: the program ───────────────────────── */
@@ -468,6 +515,29 @@ export const guestFeedback = sqliteTable(
     pinnedOn: text("pinned_on"),
     pinnedByName: text("pinned_by_name"),
     recordedByName: text("recorded_by_name").notNull(),
+    /** Who decided the tag: "auto" when the platform found the name in the text, "manager" once a manager set it. */
+    tagSource: text("tag_source", { enum: ["auto", "manager"] }),
+    taggedByName: text("tagged_by_name"),
+    taggedAt: integer("tagged_at", { mode: "timestamp_ms" }),
+    /** Names the platform found in the text, kept so a manager can see why it tagged who it did. */
+    matches: text("matches", { mode: "json" })
+      .$type<{ memberId: string; name: string; word: string; score: number; how: "exact" | "close" | "guess" }[]>()
+      .notNull()
+      .default([]),
+    /** A manager has read it on the home page. */
+    readAt: integer("read_at", { mode: "timestamp_ms" }),
+    /** Marked by a manager for the quarterly Above and beyond reward. */
+    aboveBeyond: integer("above_beyond", { mode: "boolean" }).default(false),
+    aboveBeyondByName: text("above_beyond_by_name"),
+    /** Colleagues who have seen that they were tagged (clears their notification). */
+    seenBy: text("seen_by", { mode: "json" }).$type<string[]>().notNull().default([]),
+    /** Link to the review where it was posted, and the platform's own id for it (stops double imports). */
+    externalUrl: text("external_url"),
+    externalId: text("external_id"),
+    /** A manager replied on the platform. Replies themselves live on the platform. */
+    respondedAt: integer("responded_at", { mode: "timestamp_ms" }),
+    respondedByName: text("responded_by_name"),
+    responseNote: text("response_note"),
     createdAt: createdAt(),
   },
   (t) => [index("feedback_store_idx").on(t.storeId, t.receivedOn)],

@@ -409,12 +409,12 @@ function PeopleTable({ people, combined, storeName }: { people: Overview["people
                 {p.pending > 0 && <div className="mt-1 text-[11px] font-semibold text-oxblood">{p.pending} unsigned</div>}
               </td>
               <td className={cn("r", p.late && "font-semibold text-oxblood")}>
-                {p.late || "—"}
+                {p.late || "·"}
                 {p.avgLate != null && <div className="text-[10.5px] font-normal text-ink-soft">avg {p.avgLate} min</div>}
               </td>
-              <td className={cn("r", p.dress && "font-semibold text-oxblood")}>{p.dress || "—"}</td>
-              <td className={cn("r", p.noShow && "font-semibold text-oxblood")}>{p.noShow || "—"}</td>
-              <td className={cn("r", p.swap && "font-semibold text-oxblood")}>{p.swap || "—"}</td>
+              <td className={cn("r", p.dress && "font-semibold text-oxblood")}>{p.dress || "·"}</td>
+              <td className={cn("r", p.noShow && "font-semibold text-oxblood")}>{p.noShow || "·"}</td>
+              <td className={cn("r", p.swap && "font-semibold text-oxblood")}>{p.swap || "·"}</td>
               <td>
                 <StepChip step={p.step} />
                 {p.next && p.strikes >= 2 && (
@@ -423,8 +423,15 @@ function PeopleTable({ people, combined, storeName }: { people: Overview["people
                     {p.next.in > 1 && ` in ${p.next.in}`}
                   </div>
                 )}
+                {p.plan && (
+                  <Link href={`/team/${p.id}`} className={cn("mt-1 block text-[10.5px] hover:underline", p.plan.progress.ready ? "font-semibold text-sage" : "text-ink-soft")}>
+                    Plan: {p.plan.progress.summary}
+                    {p.plan.progress.ready && " · ready to sign off"}
+                  </Link>
+                )}
+                {p.resetOn && <div className="mt-1 text-[10.5px] text-sage">Back to zero on {shortDay(p.resetOn)}</div>}
               </td>
-              <td className="text-[12px] text-ink-soft">{p.rollsOff ? shortDay(p.rollsOff) : "—"}</td>
+              <td className="text-[12px] text-ink-soft">{p.rollsOff ? shortDay(p.rollsOff) : "·"}</td>
             </tr>
           ))}
         </tbody>

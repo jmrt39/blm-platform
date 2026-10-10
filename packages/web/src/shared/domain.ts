@@ -102,6 +102,21 @@ export function onboardingPlan(role: string): { phase: 30 | 60 | 90; title: stri
   return plan;
 }
 
+/** Where an onboarding step is done on the platform. A step with a quiz ticks itself when the quiz is passed. */
+export type OnboardingLink = { quiz?: string; module?: string; how: string };
+const ONBOARDING_LINKS: Record<string, OnboardingLink> = {
+  "Menu knowledge check": { quiz: "q-menu", module: "menu-allergens", how: "Read Menu & Allergens, then pass the check at 80%. It ticks itself when you pass." },
+  "Wine list: by-the-glass and top 20 bottles": { quiz: "q-wine", module: "wine-list", how: "Read the Wine List module, then pass the check at 80%. It ticks itself when you pass." },
+  "Steps of service walkthrough": { module: "steps-of-service", how: "Read Steps of Service before your walkthrough. Your trainer ticks it off." },
+  "POS walkthrough with trainer": { module: "pos-walkthrough", how: "Read the POS Walkthrough before you sit with your trainer. Your trainer ticks it off." },
+  "Opening & closing side work": { module: "table-setting-sidework", how: "Read Side Work, Opening & Closing before your shadow shifts. A manager ticks it off." },
+  "Glassware & silverware polish standard": { module: "glassware-silverware", how: "Read Glassware & Silverware before you are graded on the floor." },
+  "Specialty cocktail build-out": { module: "specialty-cocktails", how: "Learn every spec in Specialty Cocktails before the build out." },
+};
+export function onboardingLink(title: string): OnboardingLink | null {
+  return ONBOARDING_LINKS[title] ?? null;
+}
+
 export const DEFAULT_OPENING: { area: string; title: string }[] = [
   { area: "Bar", title: "Ice placed in the ice bin and poured into the wells behind the bar" },
   { area: "Bar", title: "Garnish tray cut and set — lemons, limes, oranges, cherries" },

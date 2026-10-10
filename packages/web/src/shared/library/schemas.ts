@@ -36,6 +36,7 @@ export const questionSchema = z.object({
   choices: z.array(z.string().min(1).max(300)).min(2).max(6),
   answer: z.number().int().min(0).max(5),
   why: z.string().max(600),
+  see: z.string().max(120).optional(),
 });
 
 export const quizSchema = z.object({
@@ -59,11 +60,11 @@ export const rubricSchema = z.object({
 });
 
 export const rewardSchema = z.object({
-  key: z.enum(["day_off", "guest_quote", "ads_bonus", "first_pick", "chefs_table", "certification", "peer_dinner", "winery_visit"]),
+  key: z.enum(["day_off", "guest_quote", "ads_bonus", "first_pick", "chefs_table", "certification", "peer_dinner", "winery_visit", "most_surveys", "above_beyond", "named_ten"]),
   n: z.number().int(),
   title: z.string().min(2).max(120),
   value: z.string().max(200),
-  cadence: z.enum(["Quarterly", "Each shift", "Monthly", "Annual"]),
+  cadence: z.enum(["Quarterly", "Each shift", "Monthly", "Annual", "Every 10"]),
   rule: z.string().max(600),
 });
 

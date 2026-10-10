@@ -24,3 +24,33 @@ export function useRemoveFeedback() {
   const onSuccess = useInvalidate();
   return useMutation(orpc.guests.remove.mutationOptions({ onSuccess }));
 }
+export function useFeedbackInbox(storeId: string | null, enabled = true) {
+  return useQuery({ ...orpc.guests.inbox.queryOptions({ input: { storeId } }), enabled });
+}
+export function useMySurveys(memberId: string | null, enabled = true) {
+  return useQuery({ ...orpc.guests.mine.queryOptions({ input: { memberId } }), enabled });
+}
+export function useTagFeedback() {
+  const onSuccess = useInvalidate();
+  return useMutation(orpc.guests.tag.mutationOptions({ onSuccess }));
+}
+export function useReadFeedback() {
+  const onSuccess = useInvalidate();
+  return useMutation(orpc.guests.read.mutationOptions({ onSuccess }));
+}
+export function useAboveBeyond() {
+  const onSuccess = useInvalidate();
+  return useMutation(orpc.guests.aboveBeyond.mutationOptions({ onSuccess }));
+}
+export function useAckSurveys() {
+  const onSuccess = useInvalidate();
+  return useMutation(orpc.guests.ack.mutationOptions({ onSuccess }));
+}
+export function useRespondFeedback() {
+  const onSuccess = useInvalidate();
+  return useMutation(orpc.guests.respond.mutationOptions({ onSuccess }));
+}
+export function useImportFeedback() {
+  const onSuccess = useInvalidate();
+  return useMutation(orpc.guests.import.mutationOptions({ onSuccess }));
+}

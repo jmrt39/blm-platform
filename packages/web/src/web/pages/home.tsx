@@ -12,6 +12,10 @@ import { LastYearStrip } from "../components/last-year";
 import { useHome } from "../queries/reports";
 import { useTodayChecklists } from "../queries/checklists";
 import { useSetupStatus } from "../queries/setup";
+import { useMember } from "../queries/team";
+import { OnboardingResume } from "./team";
+import { FeedbackInbox } from "../components/feedback-inbox";
+import { StarHero, TagNotice } from "../components/surveys";
 import { dayLabel, money, money2, num, pct, shortDay, timeOf } from "../lib/format";
 import { ROLE_LABEL } from "../../shared/domain";
 import { cn } from "../lib/utils";
@@ -164,14 +168,14 @@ function OwnerHome() {
               Spend per ticket <HowCalculated metric="spendPerTicket" period={shortDay(h.lastNight)} />
             </>
           }
-          value={noNight ? "—" : money2(h.night.spt)}
+          value={noNight ? "·" : money2(h.night.spt)}
           tone={noNight ? undefined : below ? "bad" : "good"}
           sub={
             noNight ? (
-              <>Target {money2(h.night.ticketTarget)} · no report yet</>
+              <>Mix target {money2(h.night.ticketTarget)} · no report yet</>
             ) : (
             <>
-              Target {money2(h.night.ticketTarget)} ·{" "}
+              Mix target {money2(h.night.ticketTarget)} ·{" "}
               <span className={below ? "text-oxblood" : "text-sage"}>
                 {diff >= 0 ? "+" : "−"}
                 {money2(Math.abs(diff))}
@@ -198,6 +202,10 @@ function OwnerHome() {
 
       <motion.div {...rise(2)}>
         <LastYearStrip night={h.lastYear.night} month={h.lastYear.month} today={h.lastYear.today} lastNight={h.lastNight} />
+      </motion.div>
+
+      <motion.div {...rise(2)} className="[&>section]:mt-8 [&>section]:mb-2">
+        <FeedbackInbox storeId={scopeId} showStore={v.isLeader && !v.scope} />
       </motion.div>
 
       {/* What to do next */}
@@ -308,7 +316,7 @@ function OwnerHome() {
             <div className="mt-8">
               <div className="mb-2 flex items-baseline justify-between">
                 <div className="eyebrow">Spend per ticket by night</div>
-                <div className="text-[11.5px] text-ink-soft">dashed = target {money2(h.month.totals.ticketTarget)}</div>
+                <div className="text-[11.5px] text-ink-soft">dashed = mix target {money2(h.month.totals.ticketTarget)}</div>
               </div>
               <Spark data={series.map((s) => s.spt)} target={h.month.totals.ticketTarget} height={80} />
               <div className="mt-1 flex justify-between text-[11px] text-ink-soft">
@@ -384,11 +392,11 @@ function OwnerHome() {
                   <dl className="mt-3 grid grid-cols-3 gap-2 text-[12px]">
                     <div>
                       <dt className="text-ink-soft">Spend / ticket</dt>
-                      <dd className={cn("font-semibold", bad ? "text-oxblood" : "text-sage")}>{s.nights ? money2(s.spt) : "—"}</dd>
+                      <dd className={cn("font-semibold", bad ? "text-oxblood" : "text-sage")}>{s.nights ? money2(s.spt) : "·"}</dd>
                     </div>
                     <div>
                       <dt className="text-ink-soft">30 day baseline</dt>
-                      <dd className="font-semibold">{m ? money2(m.spt) : "—"}</dd>
+                      <dd className="font-semibold">{m ? money2(m.spt) : "·"}</dd>
                     </div>
                     <div>
                       <dt className="text-ink-soft">On time</dt>
@@ -417,7 +425,7 @@ function OwnerHome() {
                     <th className="r">Net sales</th>
                     <th className="r">Tickets</th>
                     <th className="r">Spend / ticket</th>
-                    <th className="r">Target</th>
+                    <th className="r">Mix target</th>
                     <th className="r">30 day baseline</th>
                     <th className="r">Gap / ticket</th>
                     <th className="r">On time completion</th>
@@ -434,12 +442,12 @@ function OwnerHome() {
                           </button>
                           <div className="text-[11px] text-ink-soft">Store {s.number}</div>
                         </td>
-                        <td className="r figure text-[16px]">{s.nights ? money(s.sales) : "—"}</td>
-                        <td className="r">{s.nights ? num(s.checks) : "—"}</td>
-                        <td className={cn("r font-semibold", s.spt >= s.ticketTarget ? "text-sage" : "text-oxblood")}>{s.nights ? money2(s.spt) : "—"}</td>
+                        <td className="r figure text-[16px]">{s.nights ? money(s.sales) : "·"}</td>
+                        <td className="r">{s.nights ? num(s.checks) : "·"}</td>
+                        <td className={cn("r font-semibold", s.spt >= s.ticketTarget ? "text-sage" : "text-oxblood")}>{s.nights ? money2(s.spt) : "·"}</td>
                         <td className="r text-ink-soft">{money2(s.ticketTarget)}</td>
-                        <td className="r">{m ? money2(m.spt) : "—"}</td>
-                        <td className="r">{m?.gap ? money2(m.gap.gap) : "—"}</td>
+                        <td className="r">{m ? money2(m.spt) : "·"}</td>
+                        <td className="r">{m?.gap ? money2(m.gap.gap) : "·"}</td>
                         <td className="r">
                           {pct(m?.compliance.rate)} <span className="text-[11px] text-ink-soft">({m?.compliance.onTime ?? 0}/{m?.compliance.expected ?? 0})</span>
                         </td>
@@ -526,12 +534,31 @@ function Assumptions({ gap, combined, stores, halfGap }: { gap: Gap; combined: b
   );
 }
 
+function StaffResume({ memberId }: { memberId: string }) {
+  const q = useMember(memberId);
+  if (!q.data) return null;
+  return <OnboardingResume items={q.data.onboarding} today={q.data.today} className="mb-10" />;
+}
+
 function StaffHome() {
   const v = useViewer();
   const q = useTodayChecklists(v.storeId);
   const first = v.me.accessName.split(" ")[0];
   return (
-    <Page eyebrow={`${v.store?.name} · ${ROLE_LABEL[v.me.accessRole]}`} title={<>Good to see you, {first}.</>}>
+    <Page eyebrow={`${v.store?.name} · ${ROLE_LABEL[v.me.accessRole]}`} title={<>Welcome back, {first}.</>}>
+      {v.me.member && (
+        <>
+          <TagNotice memberId={v.me.member.id} className="mb-5" />
+          <motion.div {...rise(0)} className="mb-10">
+            <StarHero memberId={v.me.member.id}>
+              <Link href="/rewards/mine" className="btn btn-gold">
+                My rewards <ArrowUpRight className="size-4" />
+              </Link>
+            </StarHero>
+          </motion.div>
+          <StaffResume memberId={v.me.member.id} />
+        </>
+      )}
       <div className="eyebrow mb-3">Today's checklists</div>
       {q.isLoading ? (
         <Loading />

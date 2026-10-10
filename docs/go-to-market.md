@@ -120,7 +120,7 @@ Then ask it to run lint and typecheck before it says it's finished.
 
 A new group starts from a **blank organisation**: no fake data, only the standard library. Setup takes about an hour with the GM, and this is the flow:
 
-1. **Owner signs up** and fills in one form: group name, first store, city, store PIN, spend per ticket target (defaults to $150). That creates the org, the store, and the standard opening and closing checklists.
+1. **Owner signs up** and fills in one form: group name, first store, city, store PIN, dinner full time spend per ticket target (defaults to $78; lunch and part time targets sit alongside it). That creates the org, the store, and the standard opening and closing checklists.
 2. **The home page shows a "Getting started" card** with seven steps. It ticks itself off as the data arrives and disappears when everything is done:
    1. Add every store, with its PIN and target
    2. Add the GM and managers

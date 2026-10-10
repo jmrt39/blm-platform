@@ -6,7 +6,11 @@ import * as s from "../database/schema";
 import { assertStore, managerBase, uniqueMemberPin, viewerBase } from "../lib/access";
 import { onboardingRows } from "../lib/core";
 import { addDays, businessDate, daysBetween } from "../lib/time";
-import { initialsOf, isManagementRole, STORE_ROLES } from "../../shared/domain";
+import { initialsOf, isManagementRole, onboardingLink, STORE_ROLES } from "../../shared/domain";
+import { loadLibrary } from "../lib/library";
+import { PASS_MARK } from "../../shared/program";
+import { EMPLOYMENT, isCounted, targetGrid } from "../../shared/metrics";
+import { blockIn, blockingActions, lineTarget, perfBy, perfLines, rollingFrom, standing } from "../lib/perf";
 
 const roleEnum = z.enum(STORE_ROLES);
 
@@ -16,6 +20,50 @@ function summarize(items: (typeof s.onboardingItems.$inferSelect)[], today: stri
   const overdue = items.filter((i) => !i.completedAt && i.dueDate < today).length;
   const open = items.filter((i) => !i.completedAt).sort((a, b) => a.phase - b.phase || a.sort - b.sort);
   return { total, done, overdue, phase: open[0]?.phase ?? (total ? 90 : null), next: open[0]?.title ?? null };
+}
+
+/**
+ * Attach the place on the platform where each onboarding step is done, and tick any step whose
+ * knowledge check has already been passed (a pass taken before the link existed still counts).
+ */
+async function linkOnboarding(items: (typeof s.onboardingItems.$inferSelect)[], memberId: string, orgId: string, priv: boolean) {
+  const lib = await loadLibrary(orgId);
+  const attempts = priv
+    ? await db
+        .select({ quiz: s.quizAttempts.quiz, score: s.quizAttempts.score })
+        .from(s.quizAttempts)
+        .where(eq(s.quizAttempts.memberId, memberId))
+    : [];
+  const best = new Map<string, number>();
+  for (const a of attempts) best.set(a.quiz, Math.max(best.get(a.quiz) ?? 0, a.score));
+  const out = [];
+  for (const it of items) {
+    const l = onboardingLink(it.title);
+    const quiz = l?.quiz && lib.quizBySlug[l.quiz] ? l.quiz : null;
+    const module = l?.module && lib.moduleBySlug[l.module] ? l.module : null;
+    const score = quiz ? (best.get(quiz) ?? null) : null;
+    let row = it;
+    if (quiz && !it.completedAt && score != null && score >= PASS_MARK) {
+      const by = `Passed the check · ${Math.round(score * 100)}%`;
+      await db.update(s.onboardingItems).set({ completedAt: new Date(), completedBy: by }).where(eq(s.onboardingItems.id, it.id));
+      row = { ...it, completedAt: new Date(), completedBy: by };
+    }
+    out.push({
+      ...row,
+      link:
+        quiz || module
+          ? {
+              quiz,
+              module,
+              moduleTitle: module ? (lib.moduleBySlug[module]?.title ?? null) : null,
+              how: l!.how,
+              tried: quiz ? attempts.some((a) => a.quiz === quiz) : false,
+              best: score,
+            }
+          : null,
+    });
+  }
+  return out;
 }
 
 export const team = {
@@ -40,32 +88,10 @@ export const team = {
           )
       : [];
     const today = businessDate("America/New_York");
-    // 30-day spend per ticket for sellers
-    const since = addDays(today, -30);
-    const reports = await db
-      .select({ id: s.shiftReports.id })
-      .from(s.shiftReports)
-      .where(and(inArray(s.shiftReports.storeId, storeIds), gte(s.shiftReports.businessDate, since)));
-    const lines = reports.length
-      ? await db
-          .select()
-          .from(s.shiftReportLines)
-          .where(
-            inArray(
-              s.shiftReportLines.reportId,
-              reports.map((r) => r.id),
-            ),
-          )
-      : [];
-    const perf = new Map<string, { sales: number; checks: number; shifts: number }>();
-    for (const l of lines) {
-      if (!l.memberId) continue;
-      const p = perf.get(l.memberId) ?? { sales: 0, checks: 0, shifts: 0 };
-      p.sales += l.netSales;
-      p.checks += l.checks;
-      p.shifts += 1;
-      perf.set(l.memberId, p);
-    }
+    // Rolling 30 days, solo serving shifts only, against each shift's own target.
+    const lines = await perfLines(storeIds, rollingFrom(today), today);
+    const perf = perfBy(lines);
+    const stores = new Map((await db.select().from(s.stores).where(inArray(s.stores.id, storeIds))).map((x) => [x.id, x]));
     const canSeePins = v.level !== "staff";
     return rows
       .map((m) => {
@@ -83,8 +109,14 @@ export const team = {
           email: canSeePins ? m.email : null,
           pin: canSeePins ? m.pin : null,
           onboarding: items.length ? summarize(items, today) : null,
-          spt30: p && p.checks ? p.sales / p.checks : null,
+          employment: m.employment,
+          targetAdjust: m.targetAdjust,
+          /** Their own dinner target today, and the ticket weighted target across their counted shifts. */
+          target: lineTarget(stores.get(m.storeId)!, m, m.role, "dinner"),
+          target30: p?.target ?? null,
+          spt30: p?.spt ?? null,
           shifts30: p?.shifts ?? 0,
+          uncounted30: p?.uncounted ?? 0,
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -105,6 +137,8 @@ export const team = {
       .where(eq(s.onboardingItems.memberId, m.id))
       .orderBy(s.onboardingItems.phase, s.onboardingItems.sort);
     const today = businessDate(store!.timezone);
+    const self0 = v.member?.id === m.id;
+    const onboarding = await linkOnboarding(items, m.id, m.orgId, self0 || v.level !== "staff");
     const lines = await db
       .select({
         date: s.shiftReports.businessDate,
@@ -113,6 +147,10 @@ export const team = {
         checks: s.shiftReportLines.checks,
         wineBottles: s.shiftReportLines.wineBottles,
         desserts: s.shiftReportLines.desserts,
+        shift: s.shiftReportLines.shift,
+        kind: s.shiftReportLines.kind,
+        target: s.shiftReportLines.target,
+        role: s.shiftReportLines.role,
       })
       .from(s.shiftReportLines)
       .innerJoin(s.shiftReports, eq(s.shiftReports.id, s.shiftReportLines.reportId))
@@ -124,6 +162,10 @@ export const team = {
       .where(eq(s.checklistLines.doneById, m.id));
     const self = v.member?.id === m.id;
     const priv = v.level !== "staff" || self;
+    const st = store!;
+    const targets = { dinner: lineTarget(st, m, m.role, "dinner"), lunch: lineTarget(st, m, m.role, "lunch") };
+    const rolling = standing(perfBy(await perfLines([st.id], rollingFrom(today), today)).get(m.id));
+    const block = blockIn((await blockingActions([m.id])).get(m.id) ?? [], m.conductResetOn, rollingFrom(today), today);
     return {
       member: {
         ...m,
@@ -131,11 +173,13 @@ export const team = {
         email: priv ? m.email : null,
         phone: priv ? m.phone : null,
       },
-      store: { id: store!.id, name: store!.name, number: store!.number, ticketTarget: store!.ticketTarget },
+      store: { id: store!.id, name: store!.name, number: store!.number, ticketTarget: store!.ticketTarget, grid: targetGrid(store!) },
       tenureDays: daysBetween(m.hireDate, today),
       today,
-      onboarding: items,
-      sales: priv ? lines.reverse() : [],
+      onboarding,
+      sales: priv ? lines.reverse().map((l) => ({ ...l, target: l.target ?? targets[l.shift], counted: isCounted(l.kind) })) : [],
+      targets,
+      rolling: priv ? { ...rolling, from: rollingFrom(today), blocked: block?.reason ?? null } : null,
       checklistLinesInitialled: initialled.length,
       canManage: v.level !== "staff",
     };
@@ -151,6 +195,7 @@ export const team = {
         email: z.string().email().nullish().or(z.literal("")),
         phone: z.string().max(40).nullish(),
         hireDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        employment: z.enum(EMPLOYMENT).default("full_time"),
         pin: z
           .string()
           .regex(/^\d{4}$/)
@@ -185,6 +230,7 @@ export const team = {
         phone: input.phone || null,
         pin,
         hireDate: input.hireDate,
+        employment: input.employment,
       });
       const rows = onboardingRows(id, input.role, input.hireDate);
       await db.insert(s.onboardingItems).values(rows);
@@ -200,6 +246,10 @@ export const team = {
         email: z.string().email().nullish().or(z.literal("")),
         phone: z.string().max(40).nullish(),
         resetPin: z.boolean().optional(),
+        employment: z.enum(EMPLOYMENT).optional(),
+        /** Personal target adjustment in dollars, with the reason. Null clears it. */
+        targetAdjust: z.number().min(-200).max(200).nullish(),
+        targetNote: z.string().max(300).optional(),
       }),
     )
     .handler(async ({ input, context }) => {
@@ -212,6 +262,11 @@ export const team = {
       if (input.email !== undefined) patch.email = input.email ? input.email.toLowerCase() : null;
       if (input.phone !== undefined) patch.phone = input.phone || null;
       if (input.resetPin) patch.pin = await uniqueMemberPin(m.storeId);
+      if (input.employment) patch.employment = input.employment;
+      if (input.targetAdjust !== undefined) patch.targetAdjust = input.targetAdjust || null;
+      if (input.targetNote !== undefined) patch.targetNote = input.targetNote.trim();
+      if (patch.targetAdjust && !(patch.targetNote ?? m.targetNote))
+        throw new ORPCError("BAD_REQUEST", { message: "Give the reason for a personal target, so it reads fair to the rest of the team." });
       if (Object.keys(patch).length) await db.update(s.members).set(patch).where(eq(s.members.id, m.id));
       if (input.resetPin) await db.delete(s.storeSessions).where(eq(s.storeSessions.memberId, m.id));
       return { ok: true, pin: patch.pin ?? null };

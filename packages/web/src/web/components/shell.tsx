@@ -23,6 +23,7 @@ function navFor(level: string): { main: NavItem[]; program: NavItem[] } {
         { href: "/quizzes", label: "Quizzes" },
         { href: "/updates", label: "Updates" },
         { href: "/team", label: "Team" },
+        { href: "/rewards/mine", label: "My rewards" },
         { href: "/conduct", label: "My record" },
       ],
       program: [],

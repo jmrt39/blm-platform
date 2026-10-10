@@ -1,4 +1,4 @@
-import { DEFAULT_TICKET_TARGET } from "../../shared/metrics";
+import { DEFAULT_TICKET_TARGET, MIN_SHIFTS, SHIFT_KINDS, SHIFT_KIND_HELP, SHIFT_KIND_LABEL, isCounted, type ShiftKind } from "../../shared/metrics";
 import { useCallback, useMemo, useState } from "react";
 import { Link, useSearch } from "wouter";
 import { motion } from "motion/react";
@@ -13,22 +13,48 @@ import { dayLabel, errMsg, money, money2, num, shortDay, timeOf } from "../lib/f
 import { ROLE_LABEL } from "../../shared/domain";
 import { cn } from "../lib/utils";
 
-type Line = { key: string; memberId: string | null; name: string; role: string; netSales: string; covers: string; checks: string; wineBottles: string; desserts: string };
-type RosterRow = { id: string; name: string; role: string; initials: string };
+type Shift = "lunch" | "dinner";
+type Line = {
+  key: string;
+  memberId: string | null;
+  name: string;
+  role: string;
+  shift: Shift;
+  kind: ShiftKind;
+  netSales: string;
+  covers: string;
+  checks: string;
+  wineBottles: string;
+  desserts: string;
+};
+type RosterRow = { id: string; name: string; role: string; initials: string; targets: Record<Shift, number> };
 
 const SELLERS = new Set(["server", "bartender", "sommelier"]);
-const blank = (): Line => ({ key: crypto.randomUUID(), memberId: null, name: "", role: "server", netSales: "", covers: "", checks: "", wineBottles: "", desserts: "" });
+const blank = (shift: Shift = "dinner"): Line => ({ key: crypto.randomUUID(), memberId: null, name: "", role: "server", shift, kind: "solo", netSales: "", covers: "", checks: "", wineBottles: "", desserts: "" });
 const n = (s: string) => {
   const v = Number(String(s).replace(/[$,\s]/g, ""));
   return Number.isFinite(v) ? v : 0;
 };
 
-const SAMPLE = `name,role,net_sales,covers,checks,wine_bottles,desserts
-Maya Collins,server,2140.50,24,8,3,6
-Sam Whitaker,server,1890.00,22,7,2,5
-Camille Rhodes,server,1312.75,19,7,1,3
-Chris Ortega,bartender,1045.00,20,14,0,1
+const SAMPLE = `name,role,shift,type,net_sales,covers,checks,wine_bottles,desserts
+Maya Collins,server,dinner,solo,1716.00,52,22,3,6
+Sam Whitaker,server,dinner,solo,1482.00,46,19,2,5
+Camille Rhodes,server,dinner,being trained,610.50,20,9,1,3
+Chris Ortega,bartender,dinner,solo,1092.00,40,35,0,1
 `;
+
+/** Reads the shift and how it was worked from whatever words the POS export or the manager used. */
+const shiftOf = (s: string): Shift => (/lun|am|day/i.test(s) ? "lunch" : "dinner");
+function kindOf(s: string): ShiftKind {
+  const x = s.toLowerCase();
+  if (!x.trim() || /solo|own|regular|normal|serv/.test(x)) return /train/.test(x) ? (/(being|trainee|shadow)/.test(x) ? "being_trained" : "training_other") : "solo";
+  if (/shadow|trainee|being|new/.test(x)) return "being_trained";
+  if (/train/.test(x)) return "training_other";
+  if (/event|buyout|private|banquet|prix|fixed/.test(x)) return "event";
+  if (/short|cut|sent home|early/.test(x)) return "short";
+  if (/host|expo|back|run|setup|other/.test(x)) return "other_work";
+  return (SHIFT_KINDS as readonly string[]).includes(x) ? (x as ShiftKind) : "solo";
+}
 
 function parseCsv(text: string) {
   const rows: string[][] = [];
@@ -70,6 +96,8 @@ const ALIASES: Record<string, string[]> = {
   checks: ["checks", "tickets", "check count", "check_count"],
   wineBottles: ["wine_bottles", "wine bottles", "wine", "bottles"],
   desserts: ["desserts", "dessert", "dessert count"],
+  shift: ["shift", "daypart", "meal", "meal period"],
+  kind: ["type", "kind", "shift type", "shift_type", "worked as", "worked_as"],
 };
 
 function linesFromCsv(text: string, roster: RosterRow[]): { lines: Line[]; unmatched: string[]; error?: string } {
@@ -97,6 +125,8 @@ function linesFromCsv(text: string, roster: RosterRow[]): { lines: Line[]; unmat
       memberId: m?.id ?? null,
       name: m?.name ?? name,
       role: m?.role ?? (get("role").toLowerCase() || "server"),
+      shift: shiftOf(get("shift")),
+      kind: kindOf(get("kind")),
       netSales: get("netSales"),
       covers: get("covers"),
       checks: get("checks"),
@@ -212,9 +242,11 @@ function NightView({ date, onBack }: { date: string; onBack: () => void }) {
               <tr>
                 <th>Name</th>
                 <th>Role</th>
+                <th>Shift</th>
                 <th className="r">Net sales</th>
                 <th className="r">Tickets</th>
                 <th className="r">Spend / ticket</th>
+                <th className="r">Target</th>
                 <th className="r">Wine btl</th>
                 <th className="r">Desserts</th>
               </tr>
@@ -222,13 +254,23 @@ function NightView({ date, onBack }: { date: string; onBack: () => void }) {
             <tbody>
               {r.lines.map((l) => {
                 const p = l.checks ? l.netSales / l.checks : 0;
+                const counts = isCounted(l.kind);
                 return (
-                  <tr key={l.id}>
+                  <tr key={l.id} className={cn(!counts && "text-ink-soft")}>
                     <td className="font-semibold">{l.memberId ? <Link href={`/team/${l.memberId}`} className="hover:underline">{l.name}</Link> : l.name}</td>
                     <td className="text-ink-soft">{ROLE_LABEL[l.role] ?? l.role}</td>
+                    <td>
+                      <span className="capitalize">{l.shift}</span>
+                      {!counts && (
+                        <span className="chip ml-2" title={SHIFT_KIND_HELP[l.kind]}>
+                          {SHIFT_KIND_LABEL[l.kind]} · not counted
+                        </span>
+                      )}
+                    </td>
                     <td className="r">{money2(l.netSales)}</td>
                     <td className="r">{l.checks}</td>
-                    <td className={cn("r font-semibold", SELLERS.has(l.role) && l.role !== "bartender" ? (p >= target ? "text-sage" : "text-oxblood") : "")}>{money2(p)}</td>
+                    <td className={cn("r font-semibold", counts && SELLERS.has(l.role) && l.target ? (p >= l.target ? "text-sage" : "text-oxblood") : "")}>{money2(p)}</td>
+                    <td className="r text-ink-soft">{l.target ? money2(l.target) : ""}</td>
                     <td className="r">{l.wineBottles}</td>
                     <td className="r">{l.desserts}</td>
                   </tr>
@@ -291,7 +333,8 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
   const upd = (key: string, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   const addSellers = () => {
     const have = new Set(lines.map((l) => l.memberId));
-    const add = people.filter((p) => SELLERS.has(p.role) && !have.has(p.id)).map((p) => ({ ...blank(), memberId: p.id, name: p.name, role: p.role }));
+    const shift = lines.find((l) => l.name)?.shift ?? "dinner";
+    const add = people.filter((p) => SELLERS.has(p.role) && !have.has(p.id)).map((p) => ({ ...blank(shift), memberId: p.id, name: p.name, role: p.role }));
     setLines((ls) => [...ls.filter((l) => l.name), ...add]);
   };
   const importCsv = (text: string) => {
@@ -318,6 +361,8 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
           memberId: l.memberId,
           name: l.name,
           role: l.role,
+          shift: l.shift,
+          kind: l.kind,
           netSales: n(l.netSales),
           covers: Math.round(n(l.covers)),
           checks: Math.round(n(l.checks)),
@@ -374,9 +419,9 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
                 Use the sample
               </button>
             </div>
-            <textarea aria-label="…or paste rows here: name, role, net_sales, covers, checks, wine_bottles, desserts"
+            <textarea aria-label="Paste POS rows"
               className="field mt-4 !h-28 py-2 font-mono text-[12px]"
-              placeholder="…or paste rows here: name, role, net_sales, covers, checks, wine_bottles, desserts"
+              placeholder="…or paste rows here: name, role, shift, type, net_sales, covers, checks, wine_bottles, desserts"
               value={csv}
               onChange={(e) => importCsv(e.target.value)}
             />
@@ -395,6 +440,8 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
             <thead>
               <tr>
                 <th className="min-w-[200px]">Who worked</th>
+                <th>Shift</th>
+                <th>How they worked it</th>
                 <th className="r">Net sales</th>
                 <th className="r">Covers</th>
                 <th className="r">Tickets</th>
@@ -409,8 +456,10 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
             <tbody>
               {lines.map((l) => {
                 const p = n(l.checks) ? n(l.netSales) / n(l.checks) : 0;
+                const counts = isCounted(l.kind);
+                const lt = people.find((x) => x.id === l.memberId)?.targets[l.shift] ?? null;
                 return (
-                  <tr key={l.key}>
+                  <tr key={l.key} className={cn(!counts && "bg-paper-2/40")}>
                     <td className="!py-1.5">
                       <select aria-label="Team member"
                         className="field !h-9"
@@ -429,6 +478,21 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
                         ))}
                       </select>
                     </td>
+                    <td className="!px-1 !py-1.5">
+                      <select aria-label="Shift" className="field !h-9 !w-24" value={l.shift} onChange={(e) => upd(l.key, { shift: e.target.value as Shift })}>
+                        <option value="lunch">Lunch</option>
+                        <option value="dinner">Dinner</option>
+                      </select>
+                    </td>
+                    <td className="!px-1 !py-1.5">
+                      <select aria-label="How they worked it" title={SHIFT_KIND_HELP[l.kind]} className="field !h-9 !w-40" value={l.kind} onChange={(e) => upd(l.key, { kind: e.target.value as ShiftKind })}>
+                        {SHIFT_KINDS.map((k) => (
+                          <option key={k} value={k}>
+                            {SHIFT_KIND_LABEL[k]}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
                     {(["netSales", "covers", "checks", "wineBottles", "desserts"] as const).map((k) => (
                       <td key={k} className="!px-1 !py-1.5">
                         <input aria-label={k}
@@ -440,7 +504,11 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
                         />
                       </td>
                     ))}
-                    <td className={cn("r text-[13px] font-semibold", p ? (p >= target ? "text-sage" : "text-oxblood") : "text-ink-soft")}>{p ? money2(p) : "—"}</td>
+                    <td className={cn("r text-[13px] font-semibold", p && counts && lt ? (p >= lt ? "text-sage" : "text-oxblood") : "text-ink-soft")} title={lt ? `Target ${money2(lt)}` : undefined}>
+                      {p ? money2(p) : ""}
+                      {lt && counts ? <div className="text-[10.5px] font-normal text-ink-soft">of {money2(lt)}</div> : null}
+                      {!counts && <div className="text-[10.5px] font-normal">not counted</div>}
+                    </td>
                     <td className="!px-1">
                       <button type="button" aria-label="Remove row" onClick={() => setLines((ls) => (ls.length > 1 ? ls.filter((x) => x.key !== l.key) : [blank()]))} className="text-ink-soft/60 hover:text-oxblood">
                         <Trash2 className="size-4" />
@@ -452,8 +520,21 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
             </tbody>
           </table>
         </div>
+        <details className="mt-3 text-[12.5px] text-ink-soft">
+          <summary className="cursor-pointer font-semibold text-ink">Which shifts count</summary>
+          <p className="mt-2 max-w-[70ch]">
+            Only serving solo counts toward someone's average, the {MIN_SHIFTS} shift minimum and every reward. People are judged on the tables they were given, against the target for that shift.
+          </p>
+          <ul className="mt-2 grid gap-1 md:grid-cols-2">
+            {SHIFT_KINDS.map((k) => (
+              <li key={k}>
+                <span className="font-semibold text-ink">{SHIFT_KIND_LABEL[k]}.</span> {SHIFT_KIND_HELP[k]}
+              </li>
+            ))}
+          </ul>
+        </details>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button onClick={() => setLines((ls) => [...ls, blank()])} className="btn btn-line !h-9">
+          <button onClick={() => setLines((ls) => [...ls, blank(ls.find((l) => l.name)?.shift ?? "dinner")])} className="btn btn-line !h-9">
             <Plus className="size-4" /> Add a person
           </button>
           <button onClick={addSellers} className="btn btn-line !h-9">

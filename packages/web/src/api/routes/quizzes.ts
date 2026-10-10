@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ORPCError } from "@orpc/server";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../database";
 import * as s from "../database/schema";
 import { assertStore, managerBase, viewerBase, type Viewer } from "../lib/access";
@@ -9,7 +9,7 @@ import { PASS_MARK, SELLERS, type Question } from "../../shared/program";
 import { scoreQuiz } from "../../shared/library/quizzes";
 import type { LibraryIndex } from "../../shared/library/standard";
 import { loadLibrary } from "../lib/library";
-import { isManagementRole } from "../../shared/domain";
+import { isManagementRole, onboardingLink } from "../../shared/domain";
 
 type QuizDef = {
   slug: string;
@@ -125,12 +125,28 @@ export const quizzes = {
         passed,
         takenAt: new Date(),
       });
+      let onboardingTicked = 0;
+      if (passed) {
+        const open = await db
+          .select()
+          .from(s.onboardingItems)
+          .where(and(eq(s.onboardingItems.memberId, m.id), isNull(s.onboardingItems.completedAt)));
+        const ids = open.filter((o) => onboardingLink(o.title)?.quiz === d.slug).map((o) => o.id);
+        if (ids.length) {
+          await db
+            .update(s.onboardingItems)
+            .set({ completedAt: new Date(), completedBy: `Passed the check · ${Math.round(score * 100)}%` })
+            .where(inArray(s.onboardingItems.id, ids));
+          onboardingTicked = ids.length;
+        }
+      }
       return {
+        onboardingTicked,
         score,
         correct,
         total: d.questions.length,
         passed,
-        review: d.questions.map((q) => ({ id: q.id, q: q.q, choices: q.choices, answer: q.answer, chose: input.answers[q.id]!, why: q.why })),
+        review: d.questions.map((q) => ({ id: q.id, q: q.q, choices: q.choices, answer: q.answer, chose: input.answers[q.id]!, why: q.why, see: q.see ?? null })),
       };
     }),
 

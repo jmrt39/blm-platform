@@ -27,6 +27,7 @@ const row = z.object({
   email: z.string().max(120).default(""),
   phone: z.string().max(40).default(""),
   isTrainer: z.boolean().default(false),
+  employment: z.enum(["full_time", "part_time"]).default("full_time"),
 });
 
 export const setup = {
@@ -95,6 +96,7 @@ export const setup = {
           phone: r.phone || null,
           pin,
           hireDate: r.hireDate,
+          employment: r.employment,
         });
         // Only people still inside their first 90 days get a 30/60/90 plan.
         if (daysBetween(r.hireDate, today) < 90) await db.insert(s.onboardingItems).values(onboardingRows(id, role, r.hireDate));

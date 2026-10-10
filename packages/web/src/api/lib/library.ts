@@ -17,7 +17,10 @@ export async function loadLibrary(orgId: string): Promise<LibraryIndex> {
   if (hit && hit.version === head.version) return hit.idx;
   const [row] = await db.select().from(s.orgPrograms).where(eq(s.orgPrograms.orgId, orgId));
   if (!row) return STANDARD;
-  const idx = indexLibrary(row.data as Library);
+  const data = row.data as Library;
+  // Rewards the platform added after this program was published still apply, at the standard values.
+  const rewards = [...data.rewards, ...STANDARD_LIBRARY.rewards.filter((r) => !data.rewards.some((x) => x.key === r.key))];
+  const idx = indexLibrary({ ...data, rewards });
   cache.set(orgId, { version: row.version, idx });
   return idx;
 }

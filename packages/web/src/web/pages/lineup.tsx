@@ -709,10 +709,10 @@ function Signed({ d, tz }: { d: Data; tz: string }) {
                           ? `Swapped · ${e.coverName}`
                           : e.arrival === "swap_unapproved"
                             ? `Unapproved swap${e.coverName ? ` · ${e.coverName}` : ""}`
-                            : "—"}
+                            : "·"}
                 </td>
                 <td className={cn(e.uniformOk === false && "font-semibold text-oxblood")}>
-                  {e.uniformOk == null ? "—" : e.uniformOk ? "✓" : e.uniformMissing.length ? e.uniformMissing.join(", ") : "Out of code"}
+                  {e.uniformOk == null ? "·" : e.uniformOk ? "✓" : e.uniformMissing.length ? e.uniformMissing.join(", ") : "Out of code"}
                 </td>
               </tr>
             ))}

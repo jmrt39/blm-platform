@@ -53,7 +53,7 @@ export function Setup({ user }: { user: { name: string; email: string } }) {
             <input aria-label="Store PIN" className="field-noir figure tracking-[0.3em]" inputMode="numeric" required value={f.storePin} onChange={(e) => setF({ ...f, storePin: e.target.value.replace(/\D/g, "").slice(0, 6) })} />
           </F>
           <F label="Spend per ticket target ($, net sales ÷ tickets)">
-            <input aria-label="Spend per ticket target" className="field-noir figure" inputMode="decimal" required placeholder="190" value={f.ticketTarget} onChange={(e) => setF({ ...f, ticketTarget: e.target.value.replace(/[^\d.]/g, "").slice(0, 6) })} />
+            <input aria-label="Spend per ticket target" className="field-noir figure" inputMode="decimal" required placeholder="78" value={f.ticketTarget} onChange={(e) => setF({ ...f, ticketTarget: e.target.value.replace(/[^\d.]/g, "").slice(0, 6) })} />
           </F>
         </div>
         {setup.error && <div className="text-[13px] text-[#e08b84]">{errMsg(setup.error)}</div>}

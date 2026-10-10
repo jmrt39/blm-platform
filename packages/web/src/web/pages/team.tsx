@@ -1,8 +1,8 @@
-import { DEFAULT_TICKET_TARGET } from "../../shared/metrics";
+import { CASH_BONUS, EMPLOYMENT, EMPLOYMENT_LABEL, MIN_SHIFTS, ROLLING_DAYS, SHIFT_KIND_LABEL, type Employment } from "../../shared/metrics";
 import { useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { motion } from "motion/react";
-import { Check, GraduationCap, UserPlus } from "lucide-react";
+import { ArrowRight, BookOpen, Check, GraduationCap, Star, UserPlus } from "lucide-react";
 import { Page, Loading, ErrorNote } from "../components/shell";
 import { useViewer } from "../components/viewer";
 import { Bar, Empty, Seg, Spark, Stat } from "../components/bits";
@@ -20,6 +20,45 @@ import { useHourGoal, useSetHourGoal } from "../queries/slow";
 import type { CertKind } from "../../shared/program";
 import { cn } from "../lib/utils";
 
+type Rolling = NonNullable<NonNullable<ReturnType<typeof useMember>["data"]>["rolling"]>;
+function rewardStanding(r: Rolling) {
+  if (r.blocked) return "On hold";
+  if (r.need > 0) return `${r.need} more shift${r.need === 1 ? "" : "s"}`;
+  if (r.cash) return `On pace for $${CASH_BONUS}`;
+  if (r.atTarget) return "At target";
+  return "Below target";
+}
+
+/** A GM can move one person's target up or down, with the reason written down. */
+function PersonalTarget({ id, adjust, note }: { id: string; adjust: number | null; note: string }) {
+  const update = useUpdateMember();
+  const [a, setA] = useState(adjust == null ? "" : String(adjust));
+  const [n, setN] = useState(note);
+  const dirty = a !== (adjust == null ? "" : String(adjust)) || n !== note;
+  return (
+    <div className="rounded-[2px] border rule px-4 py-3 text-[13.5px]">
+      <div className="mb-2 flex items-center justify-between">
+        <span>Personal target</span>
+        <span className="text-[11.5px] text-ink-soft">+ or − dollars on their grid target</span>
+      </div>
+      <div className="flex gap-2">
+        <input aria-label="Personal target adjustment" className="field !h-9 !w-24 text-right" inputMode="decimal" placeholder="0" value={a} onChange={(e) => setA(e.target.value)} />
+        <input aria-label="Reason" className="field !h-9" placeholder="Why, for example: takes the large parties" value={n} onChange={(e) => setN(e.target.value)} />
+      </div>
+      {dirty && (
+        <button
+          className="btn btn-ink mt-2 !h-8 !text-[12px]"
+          disabled={update.isPending}
+          onClick={() => update.mutate({ id, targetAdjust: a.trim() ? Number(a) : null, targetNote: n })}
+        >
+          Save target
+        </button>
+      )}
+      {update.error && <div className="mt-2 text-[12px] text-oxblood">{errMsg(update.error)}</div>}
+    </div>
+  );
+}
+
 function tenure(days: number) {
   if (days < 0) return "Starts soon";
   if (days < 60) return `${days} days`;
@@ -35,7 +74,6 @@ export function TeamPage() {
   const conduct = useConductOverview(scope, v.isManager);
   const standing = new Map((v.isManager ? (conduct.data?.people ?? []) : []).map((p) => [p.id, p]));
   const [filter, setFilter] = useState<"all" | "mgmt" | "staff" | "new">("all");
-  const target = v.store?.ticketTarget ?? DEFAULT_TICKET_TARGET;
   const rows = (q.data ?? []).filter((m) =>
     filter === "all" ? true : filter === "mgmt" ? isManagementRole(m.role) : filter === "staff" ? !isManagementRole(m.role) : m.tenureDays <= 90,
   );
@@ -68,7 +106,7 @@ export function TeamPage() {
             { value: "new", label: "First 90 days" },
           ]}
         />
-        <div className="text-[12px] text-ink-soft">Spend per ticket = last 30 nights, sales ÷ tickets</div>
+        <div className="text-[12px] text-ink-soft">Spend per ticket: last {ROLLING_DAYS} days, solo serving shifts only, against each person's own target</div>
       </div>
       {q.isLoading ? (
         <Loading />
@@ -123,13 +161,24 @@ export function TeamPage() {
                   </td>
                   {v.isLeader && !v.scope && <td className="text-ink-soft">{storeName(m.storeId)}</td>}
                   <td className="text-ink-soft">{tenure(m.tenureDays)}</td>
-                  <td className={cn("r font-semibold", m.spt30 != null && (m.spt30 >= target ? "text-sage" : "text-oxblood"))}>{m.spt30 != null ? money2(m.spt30) : "—"}</td>
+                  <td className="r">
+                    {m.spt30 != null ? (
+                      <>
+                        <span className={cn("font-semibold", m.spt30 >= (m.target30 ?? m.target) ? "text-sage" : "text-oxblood")}>{money2(m.spt30)}</span>
+                        <div className="text-[11px] text-ink-soft">
+                          {Math.round((m.spt30 / (m.target30 ?? m.target)) * 100)}% of {money2(m.target30 ?? m.target)} · {m.shifts30} shift{m.shifts30 === 1 ? "" : "s"}
+                        </div>
+                      </>
+                    ) : (
+                      "·"
+                    )}
+                  </td>
                   {v.isManager && (
                     <td className="r" title={ratingLabel(standing.get(m.id)?.rating?.overall)}>
                       <RatingFigure value={standing.get(m.id)?.rating?.overall} className="text-[18px]" />
                     </td>
                   )}
-                  {v.isManager && <td>{standing.get(m.id)?.strikes ? <StrikeDots n={standing.get(m.id)!.strikes} /> : <span className="text-[12px] text-ink-soft">—</span>}</td>}
+                  {v.isManager && <td>{standing.get(m.id)?.strikes ? <StrikeDots n={standing.get(m.id)!.strikes} /> : <span className="text-[12px] text-ink-soft">·</span>}</td>}
                   <td className="w-44">
                     {m.onboarding && m.onboarding.done < m.onboarding.total ? (
                       <div>
@@ -140,7 +189,7 @@ export function TeamPage() {
                         </div>
                       </div>
                     ) : (
-                      <span className="text-[12px] text-ink-soft">{m.onboarding ? "Complete" : "—"}</span>
+                      <span className="text-[12px] text-ink-soft">{m.onboarding ? "Complete" : "·"}</span>
                     )}
                   </td>
                   {v.isManager && <td className="r figure tracking-[0.15em] text-ink-soft">{m.pin}</td>}
@@ -154,6 +203,52 @@ export function TeamPage() {
   );
 }
 
+type ObItem = NonNullable<ReturnType<typeof useMember>["data"]>["onboarding"][number];
+type ObLink = NonNullable<ObItem["link"]>;
+const stepHref = (l: ObLink) => (l.quiz ? `/quizzes/${encodeURIComponent(l.quiz)}` : `/training/${l.module}`);
+function stepLabel(l: ObLink, self: boolean) {
+  if (!self) return l.quiz ? "Open the check" : "Open the module";
+  if (l.quiz) return l.tried ? "Resume now" : "Start now";
+  return "Open the module";
+}
+
+/** The next onboarding step that lives on the platform, one tap away. */
+export function OnboardingResume({ items, today, className }: { items: ObItem[]; today: string; className?: string }) {
+  const open = items.filter((o) => !o.completedAt);
+  const next = open.find((o) => o.link);
+  if (!next?.link) return null;
+  const overdue = next.dueDate < today;
+  const done = items.length - open.length;
+  return (
+    <div className={cn("relative overflow-hidden rounded-[2px] border border-gold-deep/40 bg-paper-2", className)}>
+      <div className="absolute inset-y-0 left-0 w-1 bg-gold-deep" />
+      <div className="flex flex-wrap items-center justify-between gap-5 px-6 py-5">
+        <div className="min-w-0">
+          <div className="eyebrow mb-1 text-gold-deep">
+            Pick up where you left off · {done} of {items.length} onboarding steps done
+          </div>
+          <div className="font-display text-[26px] leading-tight">{next.title}</div>
+          <div className="mt-1 max-w-[62ch] text-[13px] text-ink-soft">{next.link.how}</div>
+          <div className={cn("mt-1 text-[12px] font-semibold", overdue ? "text-oxblood" : "text-ink-soft")}>
+            {overdue ? `Overdue since ${shortDay(next.dueDate)}` : `Due ${shortDay(next.dueDate)}`}
+            {next.link.best != null && ` · best so far ${Math.round(next.link.best * 100)}%`}
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col items-stretch gap-2">
+          <Link href={stepHref(next.link)} className="btn btn-ink">
+            Resume now <ArrowRight className="size-4" />
+          </Link>
+          {next.link.quiz && next.link.module && (
+            <Link href={`/training/${next.link.module}`} className="btn btn-line !text-[12.5px]">
+              <BookOpen className="size-4" /> Read the module first
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MemberPage() {
   const { id } = useParams<{ id: string }>();
   const v = useViewer();
@@ -164,11 +259,12 @@ export function MemberPage() {
   const [, nav] = useLocation();
   if (q.isLoading) return <Loading />;
   if (q.error || !q.data) return <ErrorNote error={q.error} />;
-  const { member: m, store, onboarding, sales, tenureDays, today, canManage, checklistLinesInitialled } = q.data;
-  const totalSales = sales.reduce((a, s) => a + s.netSales, 0);
-  const covers = sales.reduce((a, s) => a + s.covers, 0);
-  const tickets = sales.reduce((a, s) => a + s.checks, 0);
-  const spt = tickets ? totalSales / tickets : 0;
+  const { member: m, store, onboarding, sales, tenureDays, today, canManage, checklistLinesInitialled, targets, rolling } = q.data;
+  const solo = sales.filter((s) => s.counted);
+  const totalSales = solo.reduce((a, s) => a + s.netSales, 0);
+  const covers = solo.reduce((a, s) => a + s.covers, 0);
+  const tickets = solo.reduce((a, s) => a + s.checks, 0);
+  const notCounted = sales.length - solo.length;
   const phases = [30, 60, 90] as const;
   const seller = ["server", "sommelier", "bartender"].includes(m.role);
 
@@ -187,6 +283,11 @@ export function MemberPage() {
         <div className="flex items-center gap-2">
           <span className="chip !text-[12px]">{ROLE_LABEL[m.role]}</span>
           <RampChip days={tenureDays} />
+          {(canManage || v.me.member?.id === m.id) && (
+            <Link href={v.me.member?.id === m.id ? "/rewards/mine" : `/rewards/mine/${m.id}`} className="chip !border-gold-deep/50 !text-[12px] !text-gold-deep hover:underline">
+              <Star className="size-3.5" /> Rewards and stars
+            </Link>
+          )}
           {m.isTrainer && (
             <span className="chip !border-gold-deep/50 !text-[12px] !text-gold-deep">
               <GraduationCap className="size-3.5" /> Trainer
@@ -195,29 +296,47 @@ export function MemberPage() {
         </div>
       }
     >
+      {v.me.member?.id === m.id && <OnboardingResume items={onboarding} today={today} className="mb-8" />}
       <div className="grid grid-cols-2 gap-6 border-b rule pb-8 md:grid-cols-4">
         <Stat label="With us" value={tenure(tenureDays)} sub={`Hired ${shortDay(m.hireDate)}`} />
-        {seller && sales.length > 0 ? (
+        {seller && rolling ? (
           <>
-            <Stat label="Spend per ticket · 6 wks" value={money2(spt)} tone={spt >= store.ticketTarget ? "good" : "bad"} sub={`Store target ${money(store.ticketTarget)}`} />
-            <Stat label="Sales · 6 wks" value={money(totalSales)} sub={`${sales.length} shifts · ${tickets} tickets · ${covers} covers`} />
+            <Stat
+              label={`Spend per ticket · ${ROLLING_DAYS} days`}
+              value={rolling.spt != null ? money2(rolling.spt) : "·"}
+              tone={rolling.pct == null ? undefined : rolling.pct >= 1 ? "good" : "bad"}
+              sub={`Target ${money2(rolling.target ?? targets.dinner)}${rolling.pct != null ? ` · ${Math.round(rolling.pct * 100)}%` : ""}`}
+            />
+            <Stat label="Toward rewards" value={<span className="text-[22px]">{rewardStanding(rolling)}</span>} sub={`${rolling.shifts >= MIN_SHIFTS ? `${rolling.shifts} solo shifts, ${MIN_SHIFTS} needed` : `${rolling.shifts} of ${MIN_SHIFTS} solo shifts needed`} in 30 days${rolling.uncounted ? ` · ${rolling.uncounted} not counted` : ""}`} />
           </>
         ) : (
           <>
-            <Stat label="Shifts · 6 wks" value={sales.length || "—"} />
+            <Stat label="Shifts · 6 wks" value={sales.length || "·"} />
             <Stat label="Store" value={<span className="text-[24px]">{store.number}</span>} sub={store.name} />
           </>
         )}
         <Stat label="Checklist lines initialled" value={checklistLinesInitialled} />
       </div>
 
-      {seller && sales.length > 1 && (
+      {seller && solo.length > 1 && (
         <div className="border-b rule py-8">
           <div className="mb-2 flex items-baseline justify-between">
-            <div className="eyebrow">Spend per ticket by shift</div>
-            <div className="text-[11.5px] text-ink-soft">dashed = store target</div>
+            <div className="eyebrow">Spend per ticket by solo shift · 6 wks</div>
+            <div className="text-[11.5px] text-ink-soft">
+              dashed = their dinner target · {money(totalSales)} · {tickets} tickets · {covers} covers
+              {notCounted ? ` · ${notCounted} shift${notCounted === 1 ? "" : "s"} not counted` : ""}
+            </div>
           </div>
-          <Spark data={sales.map((s) => (s.checks ? s.netSales / s.checks : 0))} target={store.ticketTarget} height={90} />
+          <Spark data={solo.map((s) => (s.checks ? s.netSales / s.checks : 0))} target={targets.dinner} height={90} />
+          {notCounted > 0 && (
+            <div className="mt-2 text-[11.5px] text-ink-soft">
+              Not counted:{" "}
+              {sales
+                .filter((s) => !s.counted)
+                .map((s) => `${shortDay(s.date)} ${SHIFT_KIND_LABEL[s.kind].toLowerCase()}`)
+                .join(" · ")}
+            </div>
+          )}
         </div>
       )}
 
@@ -259,6 +378,19 @@ export function MemberPage() {
                             <div className="min-w-0 flex-1">
                               <div className={cn("text-[14px] font-semibold", o.completedAt && "text-ink-soft line-through decoration-ink-soft/40")}>{o.title}</div>
                               <div className="text-[12.5px] text-ink-soft">{o.detail}</div>
+                              {o.link && !o.completedAt && (
+                                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                                  <Link href={stepHref(o.link)} className="btn btn-ink !h-8 !px-3 !text-[12px]">
+                                    {stepLabel(o.link, v.me.member?.id === m.id)} <ArrowRight className="size-3.5" />
+                                  </Link>
+                                  {o.link.quiz && o.link.module && (
+                                    <Link href={`/training/${o.link.module}`} className="inline-flex items-center gap-1 text-[12px] font-semibold text-gold-deep hover:underline">
+                                      <BookOpen className="size-3.5" /> Read {o.link.moduleTitle}
+                                    </Link>
+                                  )}
+                                  {o.link.best != null && <span className="text-[11.5px] text-ink-soft">Best so far {Math.round(o.link.best * 100)}%</span>}
+                                </div>
+                              )}
                             </div>
                             <div className="shrink-0 text-right text-[11.5px]">
                               {o.completedAt ? (
@@ -287,8 +419,20 @@ export function MemberPage() {
               <Row k="Store">
                 {store.name} · {store.number}
               </Row>
-              <Row k="Email">{m.email ?? "—"}</Row>
-              <Row k="Phone">{m.phone ?? "—"}</Row>
+              <Row k="Email">{m.email ?? "·"}</Row>
+              <Row k="Phone">{m.phone ?? "·"}</Row>
+              <Row k="Hours">{EMPLOYMENT_LABEL[m.employment]}</Row>
+              {seller && (
+                <Row k="Targets">
+                  Dinner {money2(targets.dinner)} · Lunch {money2(targets.lunch)}
+                </Row>
+              )}
+              {seller && m.targetAdjust ? (
+                <Row k="Personal">
+                  {m.targetAdjust > 0 ? "+" : "−"}
+                  {money2(Math.abs(m.targetAdjust))} · {m.targetNote}
+                </Row>
+              ) : null}
               {m.pin && (
                 <Row k="Personal PIN">
                   <span className="figure text-[17px] tracking-[0.25em]">{m.pin}</span>
@@ -305,6 +449,17 @@ export function MemberPage() {
                 </span>
                 <input type="checkbox" aria-label="Trainer" className="size-4 accent-[#1c1915]" checked={m.isTrainer} onChange={(e) => update.mutate({ id: m.id, isTrainer: e.target.checked })} />
               </label>
+              <label className="flex items-center justify-between rounded-[2px] border rule px-4 py-3 text-[13.5px]">
+                <span>Hours</span>
+                <select aria-label="Hours" className="field !h-8 !w-36" value={m.employment} onChange={(e) => update.mutate({ id: m.id, employment: e.target.value as Employment })}>
+                  {EMPLOYMENT.map((x) => (
+                    <option key={x} value={x}>
+                      {EMPLOYMENT_LABEL[x]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {seller && <PersonalTarget id={m.id} adjust={m.targetAdjust} note={m.targetNote} />}
               <button onClick={() => update.mutate({ id: m.id, resetPin: true })} className="btn btn-line w-full">
                 Issue a new PIN
               </button>
@@ -460,6 +615,7 @@ export function AddColleague() {
     email: "",
     phone: "",
     hireDate: todayIso,
+    employment: "full_time" as Employment,
     pin: "",
   });
   const [done, setDone] = useState<{ id: string; pin: string; onboardingItems: number } | null>(null);
@@ -565,6 +721,16 @@ export function AddColleague() {
             </select>
           </div>
           <div>
+            <span className="label">Hours</span>
+            <select aria-label="Hours" className="field" value={f.employment} onChange={set("employment")}>
+              {EMPLOYMENT.map((x) => (
+                <option key={x} value={x}>
+                  {EMPLOYMENT_LABEL[x]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <span className="label">Start date</span>
             <input aria-label="Start date" className="field" type="date" required value={f.hireDate} onChange={set("hireDate")} />
           </div>
@@ -603,7 +769,7 @@ export function AddColleague() {
                   .filter((i) => i.phase === p)
                   .map((i) => (
                     <li key={i.title} className="flex gap-2">
-                      <span className="text-gold-deep">—</span> {i.title}
+                      <span className="text-gold-deep">·</span> {i.title}
                     </li>
                   ))}
               </ul>

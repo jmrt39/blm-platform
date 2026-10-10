@@ -9,10 +9,12 @@ import { StoreTabs } from "./checklists";
 import { useAwardReward, useRevokeReward, useRewards } from "../queries/rewards";
 import { useLibrary } from "../queries/library";
 
-const COUNT_WORD = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight"];
 import { ROLE_LABEL } from "../../shared/domain";
+import { BONUS_RULE, CONDUCT_BLOCK_RULE, PAYOUT_RULE } from "../../shared/metrics";
 import { errMsg, money } from "../lib/format";
 import { cn } from "../lib/utils";
+
+const COUNT_WORD = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
 
 export default function RewardsPage() {
   const v = useViewer();
@@ -31,10 +33,18 @@ export default function RewardsPage() {
         <ErrorNote error={q.error} />
       ) : (
         <>
-          <p className="-mt-2 mb-8 max-w-[70ch] text-[13.5px] text-ink-soft">
-            Eligibility is worked out from the platform's own numbers: spend per ticket from shift reports, floor grades, sign-offs, guest quotes and conduct. Target{" "}
-            {money(q.data!.store.ticketTarget)} spend per ticket (bartenders 40% of that). A manager records the award when it's given.
-          </p>
+          <div className="-mt-2 mb-8 max-w-[78ch] space-y-1.5 text-[13.5px] text-ink-soft">
+            <p>
+              Eligibility is worked out from the platform's own numbers: spend per ticket from shift reports, floor grades, sign offs, guest reviews and conduct. Target{" "}
+              {money(q.data!.store.ticketTarget)} spend per ticket (bartenders 40% of that). A manager records the award when it's given.
+            </p>
+            <p>
+              <span className="font-semibold text-ink">Cash.</span> {BONUS_RULE} {PAYOUT_RULE}
+            </p>
+            <p>
+              <span className="font-semibold text-ink">Conduct.</span> {CONDUCT_BLOCK_RULE}
+            </p>
+          </div>
           {award.error && <div className="mb-4 text-[13px] text-oxblood">{errMsg(award.error)}</div>}
           <div className="grid gap-5 lg:grid-cols-2">
             {q.data!.boards.map((b) => {
@@ -51,6 +61,7 @@ export default function RewardsPage() {
                       </div>
                       <h2 className="font-display text-[23px] leading-tight">{r.title}</h2>
                       <div className="mt-1 text-[12.5px] text-ink-soft">{r.rule}</div>
+                      {b.basis && <div className="mt-1 text-[11.5px] text-ink-soft/80">{b.basis}</div>}
                     </div>
                     <span className="chip shrink-0 border-gold-deep/60 text-gold-deep">{r.value}</span>
                   </div>
@@ -67,6 +78,7 @@ export default function RewardsPage() {
                             </Link>
                             <span className="ml-2 text-[11.5px] text-ink-soft">{ROLE_LABEL[e.role]}</span>
                             <div className="text-[12px] text-ink-soft">{e.metric}</div>
+                            {e.note && <div className="text-[11.5px] text-ink-soft/80">{e.note}</div>}
                           </div>
                           <div className="flex shrink-0 items-center gap-2">
                             {e.amount ? <span className="figure text-[15px] text-sage">{money(e.amount)}</span> : null}
@@ -78,7 +90,7 @@ export default function RewardsPage() {
                               <button
                                 className="btn btn-ink !h-8 !px-3 !text-[12px]"
                                 disabled={award.isPending}
-                                onClick={() => award.mutate({ storeId: v.storeId, memberId: e.memberId, reward: b.key, period: b.period.key, amount: e.amount ?? null })}
+                                onClick={() => award.mutate({ storeId: v.storeId, memberId: e.memberId, reward: b.key, period: e.period ?? b.period.key, amount: e.amount ?? null })}
                               >
                                 <Award className="size-3.5" /> Award
                               </button>
@@ -94,9 +106,13 @@ export default function RewardsPage() {
                     <div className="mt-3 border-t rule pt-3">
                       <div className="mb-1 text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-soft">Close behind</div>
                       {others.map((e) => (
-                        <div key={e.memberId} className="flex justify-between py-1 text-[12.5px] text-ink-soft">
-                          <span>{e.name}</span>
-                          <span>{e.metric}</span>
+                        <div key={e.memberId} className="flex justify-between gap-3 py-1 text-[12.5px] text-ink-soft">
+                          <span className="min-w-0">
+                            {e.name}
+                            {e.blocked && <span className="ml-2 chip !border-oxblood/40 !py-0 !text-[10.5px] !text-oxblood">Held back</span>}
+                            {e.note && <span className="block text-[11.5px] text-ink-soft/80">{e.note}</span>}
+                          </span>
+                          <span className="shrink-0 text-right">{e.metric}</span>
                         </div>
                       ))}
                       {b.entries.filter((e) => !e.eligible).length > 3 && (

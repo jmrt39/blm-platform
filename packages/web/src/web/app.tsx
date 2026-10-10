@@ -27,6 +27,7 @@ import QuizzesPage, { QuizTake } from "./pages/quizzes";
 import UpdatesPage, { UpdateDetail } from "./pages/updates";
 import GuestsPage from "./pages/guests";
 import RewardsPage from "./pages/rewards";
+import MyRewardsPage from "./pages/my-rewards";
 import CertsPage from "./pages/certs";
 import LogbookPage, { LogEntryPage } from "./pages/logbook";
 import SlowNightPage from "./pages/slow";
@@ -103,6 +104,8 @@ function Routes() {
           <Route path="/updates" component={UpdatesPage} />
           <Route path="/updates/:id" component={UpdateDetail} />
           <Route path="/guests" component={GuestsPage} />
+          <Route path="/rewards/mine" component={MyRewardsPage} />
+          <Route path="/rewards/mine/:id" component={MyRewardsPage} />
           <Route path="/rewards" component={RewardsPage} />
           <Route path="/certs" component={CertsPage} />
           <Route path="/logbook" component={LogbookPage} />

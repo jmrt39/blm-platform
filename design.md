@@ -52,6 +52,9 @@ Used on: favicon/app icon, splash, sign-in crest, top bar, the "Signed off" stam
 - **Status chip**: hairline pill — "Needs signatures" (oxblood), "Awaiting owner" (gold-deep), "On file" (ink), "Terminated" (oxblood), "Void" (struck through).
 - **Line-up roster row**: name + role, On time / Late / No-show toggles, uniform checklist chips, then a finger signature pad per person.
 - **Swap card**: phone screenshot thumbnail on the left, "From → To" in display type, the three protocol checks (date, start time, written agreement) as checkboxes.
+- **Plan panel** (performance plan write ups): ten segment progress bar, three mode radios (in total / in a row / average), a shift log with Yes / No / Skip picks per check (two starred manager calls), a score figure and a manager signature.
+- **Feedback card** (home): two columns, "What guests loved" (sage) and "Opportunities to improve" (oxblood) with theme chips; each opportunity carries "Respond on {platform}", which opens the review where it was posted in a new tab, plus Mark replied.
+- **Target figures**: people are shown as a percentage of their own target with "$spend vs $target" underneath; stores show a "Mix target" (expected sales ÷ tickets, from each shift's own lunch, dinner, part or full time target).
 - **Demo label**: "Demo data · illustrative" pill in the top bar whenever the group is the demo.
 
 ## Pages
@@ -59,7 +62,8 @@ Used on: favicon/app icon, splash, sign-in crest, top bar, the "Signed off" stam
 Sign-in · Setup (new owner) · Store unlock (manager) · Home "The bottom line, today" · Checklists (today + history) ·
 Checklist detail · Team · Colleague profile (30/60/90) · Add a colleague · Shift report (manual / CSV) ·
 Reports (store / combined) · Stores & access · Line-up (today, run, signed) · Conduct & discipline (overview, swaps,
-log a swap) · Write-up (signatures, owner approval, Terminated stamp).
+log a swap) · Write-up (signatures, owner approval, Terminated stamp, plan panel) · Guests (reviews, surveys, import,
+platform links) · Rewards (eleven rewards, including Ten guests, by name) · My rewards · Slow night.
 
 Front of house only — no kitchen roles, modules or reports.
 
