@@ -39,7 +39,7 @@ export default function RewardsPage() {
           <div className="-mt-2 mb-8 max-w-[78ch] space-y-1.5 text-[13.5px] text-ink-soft">
             <p>
               Eligibility is worked out from the platform's own numbers: spend per ticket from shift reports, floor grades, sign offs, guest reviews and conduct. Target{" "}
-              {money(q.data!.store.ticketTarget)} spend per ticket (bartenders 40% of that). A manager records the award when it's given.
+              {money(q.data!.store.ticketTarget)} spend per ticket (bartenders 40% of that), set from your BLM audit and last year's POS history. A manager records the award when it's given.
             </p>
             <p>
               <span className="font-semibold text-ink">Cash.</span> {BONUS_RULE} {PAYOUT_RULE}

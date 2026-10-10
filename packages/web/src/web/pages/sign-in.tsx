@@ -236,7 +236,7 @@ export default function SignIn() {
       <div className="mt-6 rounded-[2px] border border-gold/25 bg-gold/[0.04] p-5 text-center">
         <div className="font-display text-[19px] text-ivory">See it with a real night of service</div>
         <p className="mx-auto mt-1.5 max-w-[340px] text-[12.5px] leading-relaxed text-[#8b8277]">
-          Three 1906 stores, six weeks of history, and the team from the film: D. Kerr, Camille Rhodes, Chris Ortega.
+          1906 is a sample three store group with a year of sales history and a full floor team. Walk through it as the owner, a GM or a server.
         </p>
         <button onClick={demo.run} disabled={demo.busy} className="btn btn-noir-line mx-auto mt-4 !border-gold/50 !text-gold hover:!bg-gold hover:!text-noir">
           <Sparkles className="size-4" /> {demo.busy ? "Setting the tables…" : "Try the demo"}

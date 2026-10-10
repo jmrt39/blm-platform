@@ -57,6 +57,7 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
             <dt className="label">Spend per ticket targets</dt>
             <dd>
               <TargetGrid grid={s.grid} set={{ dinnerFull: true, dinnerPart: s.dinnerPartTarget != null, lunchFull: s.lunchTarget != null, lunchPart: s.lunchPartTarget != null }} />
+              <p className="mt-1.5 text-[11.5px] text-ink-soft">Set from your BLM audit and last year's POS history.</p>
             </dd>
           </div>
           <div>
@@ -127,7 +128,7 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
               <input aria-label="Lunch part time target" className="field" type="number" min={5} step="0.01" value={f.lunchPartTarget} placeholder={String(s.grid.lunchPart)} onChange={(e) => setF({ ...f, lunchPartTarget: e.target.value })} />
             </div>
             <p className="mt-2 text-[12px] text-ink-soft">
-              Dinner full time is the headline. Leave a cell blank and it follows from that. Full time sits higher because veterans get first call on large parties. Bartenders are held to {Math.round(BAR_TARGET_SHARE * 100)}% of their cell. Changing a target never rewrites a night already saved.
+              Your BLM audit and last year's POS history set these. Dinner full time is the headline. Leave a cell blank and it follows from that. Full time sits higher because veterans get first call on large parties. Bartenders are held to {Math.round(BAR_TARGET_SHARE * 100)}% of their cell. Changing a target never rewrites a night already saved.
             </p>
           </fieldset>
           <label>
@@ -421,6 +422,7 @@ export default function StoresPage() {
         )
       }
     >
+      <p className="-mt-2 mb-5 max-w-2xl text-[13px] text-ink-soft">Every target here comes from your BLM audit and last year's POS history, so the floor is measured against what this house has already proven it can do.</p>
       {adding && (
         <div className="mb-6">
           <NewStore onDone={() => setAdding(false)} />

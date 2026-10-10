@@ -287,7 +287,7 @@ export default function ReportsPage() {
           </div>
           <div className="flex items-center justify-between border-t-2 border-ink pt-4 text-[11px] text-ink-soft">
             <span>The Platform · Bottom Line Multiplied</span>
-            <span>{v.me.isDemo ? "Demo data · illustrative" : "From signed shift reports and checklists"}</span>
+            <span>{v.me.isDemo ? "Sample restaurant group · from signed shift reports and checklists" : "From signed shift reports and checklists"}</span>
           </div>
         </div>
       )}

@@ -101,7 +101,7 @@ export function DemoLabel({ className }: { className?: string }) {
         className,
       )}
     >
-      <span className="size-1.5 rounded-full bg-gold" /> Demo data · illustrative
+      <span className="size-1.5 rounded-full bg-gold" /> Sample restaurant group
     </span>
   );
 }

@@ -273,7 +273,7 @@ function OwnerHome() {
             <div className="mt-8">
               <div className="mb-2 flex items-baseline justify-between">
                 <div className="eyebrow">Spend per ticket by night</div>
-                <div className="text-[11.5px] text-ink-soft">dashed = mix target {money2(h.month.totals.ticketTarget)}</div>
+                <div className="text-[11.5px] text-ink-soft">dashed = mix target {money2(h.month.totals.ticketTarget)}, set from your BLM audit</div>
               </div>
               <Spark data={series.map((s) => s.spt)} target={h.month.totals.ticketTarget} height={80} />
               <div className="mt-1 flex justify-between text-[11px] text-ink-soft">

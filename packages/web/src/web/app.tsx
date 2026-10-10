@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Route, Switch, useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { AgentFeedback, RunableBadge } from "@runablehq/website-runtime";
+import { AgentFeedback } from "@runablehq/website-runtime";
 import { Provider } from "./components/provider";
 import { ViewerProvider } from "./components/viewer";
 import { Shell, Loading } from "./components/shell";
@@ -125,7 +125,6 @@ function App() {
       {/* Do not remove — off by default, activated by parent iframe via postMessage */}
       {import.meta.env.DEV && <AgentFeedback />}
       {/* "Made with Runable" badge - if user asks to remove the runable badge, remove this code as well as comment */}
-      {<RunableBadge />}
     </Provider>
   );
 }

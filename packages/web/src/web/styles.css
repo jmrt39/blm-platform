@@ -319,6 +319,7 @@
   @media (max-width: 767px) {
     .tbl {
       display: block;
+      position: relative;
       max-width: 100%;
       min-width: 0 !important;
       overflow-x: auto;
