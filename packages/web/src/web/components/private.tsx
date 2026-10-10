@@ -16,6 +16,7 @@ export function useMinutesLeft(until: number | null | undefined) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!until) return;
+    setNow(Date.now());
     const t = setInterval(() => setNow(Date.now()), 15_000);
     return () => clearInterval(t);
   }, [until]);

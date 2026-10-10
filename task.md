@@ -173,10 +173,12 @@ Open
 ## Request 2026-10-13: review fixes, then go live essentials
 - [x] Review fixes: Runable badge out (both repos), demo copy (no "film"), "Sample restaurant group", targets tied to the BLM audit
 - [x] Phones: sr-only checkbox labels inside tables escaped the scroll box; `.tbl { position: relative }` (shift report 1001px, certs 459px now 375)
-- [ ] Email: Resend service (fetch), invites with set password links (copy link fallback), forgot password + reset page, linking only for verified email or accepted invite
-- [ ] Legal: /privacy and /terms public, linked from sign in and footer, acceptance checkbox on create account, acceptance recorded
-- [ ] Privacy wall: owner + GM only; password + 6 digit SMS code (Twilio; password only until connected; demo shows the code); 30 min unlock; access log; owner view
+- [x] Email: Resend service (fetch), invites with set password links (copy link fallback), forgot password + reset page, linking only for verified email or accepted invite
+- [x] Legal: /privacy and /terms public, linked from sign in and footer, acceptance checkbox on create account, acceptance recorded
+- [x] Privacy wall: owner + GM only; password + 6 digit SMS code (Twilio; password only until connected; demo shows the code); 30 min unlock; access log; owner view
   - gated reads: conduct overview/member/action, plans, guest inbox + reviews naming staff, staff contact details, award history and payouts, exports and backups
-- [ ] Backups: nightly encrypted (AES 256 GCM, BACKUP_KEY), 30 days, S3 when configured else database; status card; owner download; cron webhook + in process timer
-- [ ] POS nightly import: docs/pos-nightly-import.md, per store connection settings, import log, missing night alert
-- [ ] verify, commit, push, deliver
+- [x] Backups: nightly encrypted (AES 256 GCM, BACKUP_KEY), 30 days, S3 when configured else database; status card; owner download; cron webhook + in process timer
+- [x] POS nightly import: docs/pos-nightly-import.md, per store connection settings, import log, missing night alert
+- [x] Runable share image (og-image.png) and website favicon.ico replaced with BLM artwork; title dash removed
+- [x] verify, commit, deliver
+- [ ] push both repos (needs a new GitHub token)
