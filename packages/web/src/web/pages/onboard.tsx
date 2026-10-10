@@ -36,7 +36,7 @@ export function Setup({ user }: { user: { name: string; email: string } }) {
       >
         <div className="grid gap-4 md:grid-cols-2">
           <F label="Restaurant group">
-            <input aria-label="Restaurant group" className="field-noir" required placeholder="1906 Hospitality Group" value={f.groupName} onChange={set("groupName")} />
+            <input aria-label="Restaurant group" className="field-noir" required placeholder="Harbor House Group" value={f.groupName} onChange={set("groupName")} />
           </F>
           <F label="Your name (owner)">
             <input aria-label="Your name (owner)" className="field-noir" required value={f.ownerName} onChange={set("ownerName")} />
