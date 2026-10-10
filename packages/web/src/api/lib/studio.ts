@@ -4,7 +4,7 @@ import { db } from "../database";
 import * as s from "../database/schema";
 import { insertChunked, replaceTemplates } from "./core";
 import { adaptItem, createItem, type DraftContext } from "./studio-ai";
-import { STANDARD_LIBRARY, type Library } from "../../shared/library/standard";
+import { houseName, STANDARD_LIBRARY, standardLibraryFor, type Library } from "../../shared/library/standard";
 import { SCHEMA_BY_TYPE, type ContentType } from "../../shared/library/schemas";
 import type { Module, Quiz, Rubric } from "../../shared/program";
 import type { Reward } from "../../shared/library/rewards";
@@ -13,9 +13,19 @@ type Item = typeof s.contentItems.$inferSelect;
 
 export const EMPTY_BRIEF: s.StudioBrief = { findings: "", priorities: [], preferences: "", reputation: "", standards: "", storeTargets: [] };
 
-/** Every client starts from a full copy of the BLM standard program. */
-export function standardRows(implId: string) {
-  const L = STANDARD_LIBRARY;
+/** The house name the standard program is written for, from the client's group name. */
+export async function houseForImpl(implId: string) {
+  const [row] = await db
+    .select({ name: s.orgs.name })
+    .from(s.implementations)
+    .innerJoin(s.orgs, eq(s.orgs.id, s.implementations.orgId))
+    .where(eq(s.implementations.id, implId));
+  return houseName(row?.name);
+}
+
+/** Every client starts from a full copy of the BLM standard program, written for their house. */
+export function standardRows(implId: string, house: string) {
+  const L = standardLibraryFor(house);
   const row = (type: ContentType, slug: string, title: string, data: unknown) => ({ implId, type, slug, title, data, origin: "standard" as const });
   return [
     ...L.modules.map((m) => row("module", m.slug, `${m.n}. ${m.title}`, m)),
@@ -29,11 +39,11 @@ export function standardRows(implId: string) {
 }
 
 export async function copyStandard(implId: string) {
-  await insertChunked(s.contentItems, standardRows(implId), 20);
+  await insertChunked(s.contentItems, standardRows(implId, await houseForImpl(implId)), 20);
 }
 
-export function standardFor(type: ContentType, slug: string) {
-  return standardRows("").find((r) => r.type === type && r.slug === slug)?.data ?? null;
+export function standardFor(type: ContentType, slug: string, house = "House") {
+  return standardRows("", house).find((r) => r.type === type && r.slug === slug)?.data ?? null;
 }
 
 export function titleOf(type: ContentType, data: Record<string, unknown>) {

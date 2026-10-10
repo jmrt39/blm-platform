@@ -9,10 +9,11 @@ import * as s from "../database/schema";
 import { randomDigits, uniqueStoreNumber } from "../lib/access";
 import { seedTemplates } from "../lib/core";
 import { historyCoverage, upsertHistory } from "../lib/history";
-import { compile, copyStandard, draftNew, EMPTY_BRIEF, kickQueue, publish, standardFor, titleOf } from "../lib/studio";
+import { compile, copyStandard, draftNew, EMPTY_BRIEF, houseForImpl, kickQueue, publish, standardFor, titleOf } from "../lib/studio";
 import { suggestPriorities, transcribe } from "../lib/studio-ai";
 import { CONTENT_TYPES, SCHEMA_BY_TYPE, type ContentType } from "../../shared/library/schemas";
 import { DEFAULT_TICKET_TARGET } from "../../shared/metrics";
+import { namesDemoHouse } from "../../shared/library/standard";
 
 const userBase = base.use(async ({ context, next }) => {
   const session = await auth.api.getSession({ headers: context.headers }).catch(() => null);
@@ -203,7 +204,7 @@ export const studio = {
         approvedByName: i.approvedByName,
         updatedAt: i.updatedAt.getTime(),
         /** The standard program was written for the 1906 demo house. Flag anything that still names it. */
-        foreign: !org!.isDemo && /\b1906\b/.test(JSON.stringify(i.data)),
+        foreign: !org!.isDemo && namesDemoHouse(i.data),
         kind: i.type === "quiz" ? ((i.data as { kind?: string }).kind ?? "knowledge") : i.type === "rubric" ? (i.data as { kind?: string }).kind : null,
         repeat: i.type === "rubric" ? ((i.data as { repeat?: string }).repeat ?? null) : null,
         size:
@@ -301,7 +302,7 @@ export const studio = {
       aiState: it.aiState,
       aiError: it.aiError,
       approvedByName: it.approvedByName,
-      standard: standardFor(it.type as ContentType, it.slug),
+      standard: standardFor(it.type as ContentType, it.slug, await houseForImpl(it.implId)),
     };
   }),
 
@@ -363,7 +364,7 @@ export const studio = {
   /** Put the BLM standard version back. */
   reset: studioBase.input(z.object({ id: z.string() })).handler(async ({ input }) => {
     const it = await itemIn(input.id);
-    const std = standardFor(it.type as ContentType, it.slug);
+    const std = standardFor(it.type as ContentType, it.slug, await houseForImpl(it.implId));
     if (!std) throw new ORPCError("BAD_REQUEST", { message: "This item is new for this client; there is no standard version." });
     await db
       .update(s.contentItems)

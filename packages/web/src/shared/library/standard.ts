@@ -48,6 +48,31 @@ export const STANDARD_LIBRARY: Library = {
   talkingPoints: STANDARD_TALKING_POINTS,
 };
 
+/** The standard program names the house with this token, so every client's copy reads as their own. */
+export const HOUSE_TOKEN = "{house}";
+
+/** "Harbor House Group" reads as "Harbor House", "1906 Hospitality Group" as "1906". */
+export function houseName(orgName: string | null | undefined) {
+  const n = (orgName ?? "").replace(/\s+(hospitality|restaurant|restaurants|dining)?\s*(group|co\.?|company|llc|inc\.?)$/i, "").replace(/\s+hospitality$/i, "").trim();
+  return n || "House";
+}
+
+/** Fills the house token everywhere in a value (a whole program, one module, one quiz). */
+export function forHouse<T>(value: T, house: string): T {
+  if (!JSON.stringify(value).includes(HOUSE_TOKEN)) return value;
+  return JSON.parse(JSON.stringify(value).split(HOUSE_TOKEN).join(house.replace(/["\\]/g, ""))) as T;
+}
+
+/** True when an item still names the 1906 demo house (slugs like "the-1906-standard" are ids, not copy). */
+export function namesDemoHouse(data: unknown) {
+  return /\b1906\b/.test(JSON.stringify(data).replace(/the-1906-standard/g, ""));
+}
+
+/** The BLM standard program written for one house. */
+export function standardLibraryFor(house: string): Library {
+  return forHouse(STANDARD_LIBRARY, house);
+}
+
 /** Lookups over one program. Every route and page reads the program through this. */
 export function indexLibrary(lib: Library) {
   const moduleBySlug = Object.fromEntries(lib.modules.map((m) => [m.slug, m])) as Record<string, Module | undefined>;

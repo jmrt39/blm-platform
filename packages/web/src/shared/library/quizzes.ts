@@ -27,7 +27,7 @@ function hash(s: string) {
 }
 
 const BASE: Quiz[] = [
-  quiz("q-standard", "The 1906 Standard", "the-1906-standard", "Core", [
+  quiz("q-standard", "The {house} Standard", "the-1906-standard", "Core", [
     ["A guest asks where the restroom is. What do you do?", ["Point to the hallway past the bar", "Tell them it is past the bar on the left", "Walk them there yourself", "Ask a host to show them"], 2, "“Walk it, don't point it.” You take them, you don't hand them off.", "Leo says"],
     ["A guest thanks you for refilling their water. The house reply is…", ["“No problem.”", "“My pleasure.”", "“You got it.”", "“No worries.”"], 1, "‘My pleasure’ is the reply to every thank you.", "Leo says"],
     ["You are heading back to the kitchen from a table. What should be in your hands?", ["Nothing, so you can move fast", "Only your check presenter", "Whatever needs to go back: glasses, plates, linen", "Your order pad"], 2, "A full hand in, a full hand out.", "Leo says"],
@@ -47,12 +47,12 @@ const BASE: Quiz[] = [
     ["The first course has landed. When do you check back?", ["Within two bites or two minutes", "When the plates are half empty", "Only if they wave you over", "When you bring the entrées"], 0, "Two bites or two minutes.", "The steps and the clock"],
     ["Two of four guests have finished their mains and nobody has asked. Do you clear?", ["Yes, clear what is finished", "No, wait until every guest has finished", "Clear only the bread plates", "Yes, if the kitchen needs the plates"], 1, "Clearing early tells the slower guests to hurry.", "Clearing"],
     ["During the menu introduction you should…", ["Read the menu top to bottom", "Cover the two specials, the market fish and the 86 list", "Mention only the most expensive items", "Wait for questions"], 1, "Two specials, the market fish, the 86 list. Never read the menu to them.", "The steps and the clock"],
-    ["A table is celebrating an anniversary. What does reading the table ask of you?", ["Be precise and quick", "Slow down, make room for the moment and tell the manager", "Fewer touches and drop the check early", "Tell the story of 1906"], 1, "Celebration: slow down, make room, tell the manager.", "Reading the table"],
+    ["A table is celebrating an anniversary. What does reading the table ask of you?", ["Be precise and quick", "Slow down, make room for the moment and tell the manager", "Fewer touches and drop the check early", "Tell the story of {house}"], 1, "Celebration: slow down, make room, tell the manager.", "Reading the table"],
     ["The guest asks for the check. You have…", ["5 minutes", "2 minutes", "Until your next table is greeted", "10 minutes"], 1, "Check presented within 2 minutes of asking.", "The steps and the clock"],
     ["To be signed off on Steps of Service you need, on the floor grade…", ["3 stars on every competency", "An average of 3.5 stars across six competencies", "5 stars on the greeting", "A pass from two managers"], 1, "Six competencies, 1 to 5 stars each, 3.5 average to sign off.", "Graded on the floor"],
   ]),
   quiz("q-upsell", "The Art of the Upsell", "art-of-the-upsell", "Core", [
-    ["Which opening is a leading question?", ["“Anything to drink?”", "“Would you like a drink?”", "“Can I start you with a glass of the Veuve, or one of our cocktails? The 1906 is my favourite.”", "“Are you drinking tonight?”"], 2, "It offers a choice between two good options.", "Leading questions, not yes or no questions"],
+    ["Which opening is a leading question?", ["“Anything to drink?”", "“Would you like a drink?”", "“Can I start you with a glass of the Veuve, or one of our cocktails? The {house} is my favourite.”", "“Are you drinking tonight?”"], 2, "It offers a choice between two good options.", "Leading questions, not yes or no questions"],
     ["A guest orders a vodka soda. You say…", ["“Coming right up.”", "“Would you like that with Ketel One or Grey Goose?”", "“Is well vodka OK?”", "“Lime or lemon?”"], 1, "Call it up with a choice of two brands.", "Leading questions, not yes or no questions"],
     ["Which of the three moments is the single biggest lever on the check?", ["Dessert", "The wine with the entrée", "The first drink", "Coffee"], 1, "The wine with the entrée.", "The three moments"],
     ["When do you ask “Have you saved room for the soufflé? I'll need to fire it now.”?", ["When dropping the check", "When taking the entrée order", "With the first drink", "After clearing the mains"], 1, "The soufflé is fired with the entrées, so you ask then.", "Leading questions, not yes or no questions"],
@@ -124,8 +124,8 @@ const BASE: Quiz[] = [
     ["Guinness Draught is served from…", ["A tap", "A nitro can", "A bottle", "A growler"], 1, "The nitro can.", "Bottles and cans"],
   ]),
   quiz("q-cocktails", "Specialty Cocktails", "specialty-cocktails", "Core", [
-    ["What is in The 1906?", ["Rye, sweet vermouth, bitters", "Bourbon, Amaro Nonino, orange bitters", "Gin, Campari, vermouth", "Bourbon, lemon, honey"], 1, "2 oz bourbon, ¾ Amaro Nonino, 2 dash orange bitters.", "The list"],
-    ["How is The 1906 built?", ["Shaken, rocks", "Stirred, up, coupe, expressed orange", "Built in a highball", "Shaken, up"], 1, "Spirit only, so it is stirred.", "The list"],
+    ["What is in The {house}?", ["Rye, sweet vermouth, bitters", "Bourbon, Amaro Nonino, orange bitters", "Gin, Campari, vermouth", "Bourbon, lemon, honey"], 1, "2 oz bourbon, ¾ Amaro Nonino, 2 dash orange bitters.", "The list"],
+    ["How is The {house} built?", ["Shaken, rocks", "Stirred, up, coupe, expressed orange", "Built in a highball", "Shaken, up"], 1, "Spirit only, so it is stirred.", "The list"],
     ["Leo's Old Fashioned uses which bourbon?", ["Maker's Mark", "Blanton's", "Woodford Double Oaked", "Buffalo Trace"], 2, "Woodford Double Oaked.", "The list"],
     ["Which cocktail is the autumn special?", ["Garden Gimlet", "Harvest Mule", "Smoke & Velvet", "Espresso Martini"], 1, "Harvest Mule: spiced pear, ginger beer, copper mug.", "The list"],
     ["The Garden Gimlet is made with…", ["Ketel One", "Hendrick's", "Beefeater", "Tanqueray"], 1, "2 oz Hendrick's, lime cordial, muddled cucumber.", "The list"],
@@ -152,10 +152,10 @@ const BASE: Quiz[] = [
     ["How do you check a polished glass?", ["Feel it", "Hold it to the light", "Smell it", "Tap it"], 1, "To the light: no spots, lint or prints.", "Polishing glassware"],
     ["You need to carry six stems to a table. You…", ["Carry them by the rims", "Use a rack", "Carry three per hand by the stems", "Stack them"], 1, "More than four go on a rack.", "Polishing glassware"],
     ["Silverware is polished with…", ["Dish soap", "Vinegar water and linen", "A dry towel only", "Sanitiser spray"], 1, "Vinegar water and linen; inspect both sides.", "Silverware"],
-    ["When setting a knife, the blade faces…", ["Out", "In, toward the plate", "Up", "It does not matter"], 1, "Blades in.", "The 1906 setting"],
-    ["Where is the bread plate?", ["Top right", "Top left, with the butter knife", "Centre", "Bottom left"], 1, "Top left with the butter knife.", "The 1906 setting"],
-    ["How far from the table edge is the setting?", ["Flush", "One inch", "Two inches", "Half an inch"], 1, "One inch from the edge.", "The 1906 setting"],
-    ["The glasses sit…", ["Top left", "Top right on a diagonal: water, white, red", "In a line across the top", "In the centre"], 1, "Top right on a diagonal.", "The 1906 setting"],
+    ["When setting a knife, the blade faces…", ["Out", "In, toward the plate", "Up", "It does not matter"], 1, "Blades in.", "The {house} setting"],
+    ["Where is the bread plate?", ["Top right", "Top left, with the butter knife", "Centre", "Bottom left"], 1, "Top left with the butter knife.", "The {house} setting"],
+    ["How far from the table edge is the setting?", ["Flush", "One inch", "Two inches", "Half an inch"], 1, "One inch from the edge.", "The {house} setting"],
+    ["The glasses sit…", ["Top left", "Top right on a diagonal: water, white, red", "In a line across the top", "In the centre"], 1, "Top right on a diagonal.", "The {house} setting"],
     ["How do you pick up a fork?", ["By the tines", "By the handle only", "Either way", "With a napkin over the tines"], 1, "By the handle only.", "Silverware"],
     ["Who signs a glassware polish grade?", ["Just the grader", "The grader and you", "The GM", "Nobody"], 1, "Both the grader and you sign.", "Graded"],
   ]),

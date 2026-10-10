@@ -84,14 +84,14 @@ export const RUBRICS: Rubric[] = [
     slug: "silverware-setting",
     title: "Silverware & table setting",
     kind: "skill",
-    summary: "Polish, roll and set a four top to the 1906 standard.",
+    summary: "Polish, roll and set a four top to the {house} standard.",
     module: "table-setting-sidework",
     roles: ["server", "busser", "food_runner", "host", "expo", "barback", "bartender"],
     criteria: [
       { key: "polish", label: "Silver polished", look: "Vinegar water and linen; both sides inspected." },
       { key: "handle", label: "Handled correctly", look: "By the handle only." },
       { key: "roll", label: "Roll-ups", look: "Knife, fork, spoon; seam underneath." },
-      { key: "setting", label: "The 1906 setting", look: "Forks left, knives right blades in, bread plate top left, glasses on the diagonal, one inch from the edge." },
+      { key: "setting", label: "The {house} setting", look: "Forks left, knives right blades in, bread plate top left, glasses on the diagonal, one inch from the edge." },
     ],
   },
 ];

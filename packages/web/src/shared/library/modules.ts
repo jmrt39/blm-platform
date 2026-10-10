@@ -12,7 +12,7 @@ export const MODULES: Module[] = [
   {
     slug: "the-1906-standard",
     n: 1,
-    title: "The 1906 Standard",
+    title: "The {house} Standard",
     category: "House",
     summary: "Who we are, what a guest should feel, and the house sayings that settle most questions on the floor.",
     minutes: 12,
@@ -128,7 +128,7 @@ export const MODULES: Module[] = [
           "Business dinner: be precise and quick; don't linger.",
           "Celebration: slow down, make room for the moment, and tell the manager.",
           "Date night: fewer touches, perfect timing.",
-          "First timers: tell the story of 1906 in one sentence.",
+          "First timers: tell the story of {house} in one sentence.",
         ],
       },
       {
@@ -154,7 +154,7 @@ export const MODULES: Module[] = [
         table: {
           head: ["Instead of", "Say"],
           rows: [
-            ["“Anything to drink?”", "“Can I start you with a glass of the Veuve, or one of our cocktails? The 1906 is my favourite.”"],
+            ["“Anything to drink?”", "“Can I start you with a glass of the Veuve, or one of our cocktails? The {house} is my favourite.”"],
             ["“Vodka soda?”", "“Would you like that with Ketel One or Grey Goose?”"],
             ["“Do you want dessert?”", "“Have you saved room for the soufflé? I'll need to fire it now.” (Said when you take the entrée order.)"],
             ["“Any sides?”", "“The creamed spinach and the maitake are what most people pair with the ribeye.”"],
@@ -451,7 +451,7 @@ export const MODULES: Module[] = [
         table: {
           head: ["Cocktail", "Spec · glass · garnish", "The line that sells it"],
           rows: [
-            ["The 1906", "2 oz bourbon, ¾ Amaro Nonino, 2 dash orange bitters. Stirred, up, coupe, expressed orange", "“Our house Manhattan, softer and a little bittersweet.”"],
+            ["The {house}", "2 oz bourbon, ¾ Amaro Nonino, 2 dash orange bitters. Stirred, up, coupe, expressed orange", "“Our house Manhattan, softer and a little bittersweet.”"],
             ["Leo's Old Fashioned", "2 oz Woodford Double Oaked, ¼ demerara, 3 dash Angostura. Large cube, rocks glass", "“Double oaked bourbon, so it's rich and a little toasty.”"],
             ["Garden Gimlet", "2 oz Hendrick's, ¾ lime cordial, muddled cucumber. Shaken, up, cucumber ribbon", "“Bright and cool, like a garden in a glass.”"],
             ["Harvest Mule", "The autumn special. 1½ Ketel One, ¾ spiced pear, ginger beer. Copper mug, pear fan", "“Our fall mule, spiced pear and ginger.”"],
@@ -509,7 +509,7 @@ export const MODULES: Module[] = [
     n: 11,
     title: "Glassware & Silverware",
     category: "Standards",
-    summary: "Polishing to the light, handling by stem and handle only, and how a 1906 table is set.",
+    summary: "Polishing to the light, handling by stem and handle only, and how a {house} table is set.",
     minutes: 12,
     roles: ALL,
     manual: "Manual pp. 35 to 36",
@@ -533,7 +533,7 @@ export const MODULES: Module[] = [
         ],
       },
       {
-        h: "The 1906 setting",
+        h: "The {house} setting",
         list: [
           "Two forks on the left. Two knives on the right, blades facing in toward the plate.",
           "Bread plate top left, with the butter knife.",

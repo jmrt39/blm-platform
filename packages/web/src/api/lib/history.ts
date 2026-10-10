@@ -66,15 +66,20 @@ export async function onThisDay(storeIds: string[], date: string) {
 
 /** How much history each store has, for the Studio and the setup checklist. */
 export async function historyCoverage(storeIds: string[]) {
-  if (!storeIds.length) return new Map<string, { days: number; from: string | null; to: string | null }>();
+  type Cov = { days: number; from: string | null; to: string | null; avgTicket: number | null };
+  if (!storeIds.length) return new Map<string, Cov>();
   const rows = await db
-    .select({ storeId: s.historyDays.storeId, date: s.historyDays.date })
+    .select({ storeId: s.historyDays.storeId, date: s.historyDays.date, netSales: s.historyDays.netSales, tickets: s.historyDays.tickets })
     .from(s.historyDays)
     .where(inArray(s.historyDays.storeId, storeIds));
-  const out = new Map<string, { days: number; from: string | null; to: string | null }>();
+  const out = new Map<string, Cov>();
   for (const id of storeIds) {
-    const ds = rows.filter((r) => r.storeId === id).map((r) => r.date).sort();
-    out.set(id, { days: ds.length, from: ds[0] ?? null, to: ds[ds.length - 1] ?? null });
+    const mine = rows.filter((r) => r.storeId === id).sort((a, b) => a.date.localeCompare(b.date));
+    // Average ticket over the most recent 12 months on file: where a target starts.
+    const last = mine.slice(-365);
+    const tickets = last.reduce((a, r) => a + r.tickets, 0);
+    const sales = last.reduce((a, r) => a + r.netSales, 0);
+    out.set(id, { days: mine.length, from: mine[0]?.date ?? null, to: mine[mine.length - 1]?.date ?? null, avgTicket: tickets ? sales / tickets : null });
   }
   return out;
 }

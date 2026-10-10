@@ -9,12 +9,13 @@ import { randomDigits, uniqueStoreNumber } from "../lib/access";
 import { seedTemplates } from "../lib/core";
 import { historyCoverage, upsertHistory } from "../lib/history";
 import { addRoster } from "../lib/roster";
-import { standardRows, titleOf } from "../lib/studio";
+import { houseForImpl, standardRows, titleOf } from "../lib/studio";
 import { implFor, studioBase } from "./studio";
 import { DEFAULT_TICKET_TARGET, targetGrid } from "../../shared/metrics";
 import { isManagementRole } from "../../shared/domain";
 import { REVIEW_PLATFORMS, type ReviewLinks } from "../../shared/reviews";
 import type { ContentType } from "../../shared/library/schemas";
+import { houseName, namesDemoHouse } from "../../shared/library/standard";
 
 const opt = (max: number) => z.string().trim().max(max).default("");
 const money = z.number().min(5).max(2000).nullish();
@@ -80,25 +81,28 @@ const intakeSchema = z.object({
 
 const norm = (x: string) => x.trim().toLowerCase().replace(/\s+/g, " ");
 
-type Fix = { tab?: "brief" | "materials" | "history" | "build" | "publish"; action?: "refresh" | "rewrite"; ids?: string[] };
+type Fix = { tab?: "brief" | "materials" | "history" | "build" | "publish"; action?: "refresh" | "rewrite"; ids?: string[]; instructions?: string; button?: string };
 type Gap = { key: string; label: string; state: "done" | "missing" | "check"; detail: string; fix?: Fix };
 type GapGroup = { title: string; gaps: Gap[] };
 
 /** Material BLM needs to write the client's program. Required ones block a good build. */
 const MATERIAL = [
-  { kind: "menu", label: "Food menu", required: true },
-  { kind: "wine", label: "Wine list", required: true },
-  { kind: "bar", label: "Bar and cocktail menu", required: false },
-  { kind: "steps_of_service", label: "Steps of service", required: true },
-  { kind: "standards", label: "House standards or handbook", required: false },
-  { kind: "protocols", label: "Allergy, safety and comp protocols", required: false },
-  { kind: "pos", label: "POS screenshots or walkthrough", required: false },
+  { kind: "menu", label: "Food menu", required: true, fallback: "" },
+  { kind: "wine", label: "Wine list", required: true, fallback: "" },
+  { kind: "bar", label: "Bar and cocktail menu", required: true, fallback: "" },
+  { kind: "steps_of_service", label: "Steps of service", required: false, fallback: "If they have none, or theirs is out of date, the BLM standard steps are used." },
+  { kind: "standards", label: "House standards or handbook", required: false, fallback: "Many houses have none, or an old one. The BLM standard covers it; add their own rules to the brief." },
+  { kind: "protocols", label: "Allergy, safety and comp protocols", required: false, fallback: "The BLM standard protocols are used until theirs arrive." },
+  { kind: "pos", label: "POS screenshots or walkthrough", required: false, fallback: "Only needed if you want a POS check written for their system." },
 ] as const;
+
+/** Standard items built on BLM's sample menu, wine list and bar. Each client needs their own. */
+const SAMPLE_SLUGS = new Set(["menu-allergens", "wine-list", "specialty-cocktails", "liquor-brands", "beer-brands", "q-menu", "q-wine", "q-somm-challenge", "q-cocktails", "q-liquor", "q-beer"]);
 
 /** Standard items this client's copy no longer matches, and standard items it never got. */
 async function standardDrift(implId: string) {
   const items = await db.select().from(s.contentItems).where(eq(s.contentItems.implId, implId));
-  const std = standardRows(implId);
+  const std = standardRows(implId, await houseForImpl(implId));
   const stale: { id: string; data: unknown; title: string }[] = [];
   const add: typeof std = [];
   let kept = 0;
@@ -117,7 +121,7 @@ export const intake = {
   missing: studioBase.input(z.object({ orgId: z.string() })).handler(async ({ input }) => {
     const impl = await implFor(input.orgId);
     const [[org], stores, owners, sources, drift, [program]] = await Promise.all([
-      db.select({ isDemo: s.orgs.isDemo }).from(s.orgs).where(eq(s.orgs.id, input.orgId)),
+      db.select({ isDemo: s.orgs.isDemo, name: s.orgs.name }).from(s.orgs).where(eq(s.orgs.id, input.orgId)),
       db.select().from(s.stores).where(eq(s.stores.orgId, input.orgId)),
       db.select().from(s.orgAccess).where(and(eq(s.orgAccess.orgId, input.orgId), eq(s.orgAccess.role, "owner"))),
       db.select({ kind: s.studioSources.kind }).from(s.studioSources).where(eq(s.studioSources.implId, impl.id)),
@@ -125,6 +129,7 @@ export const intake = {
       db.select().from(s.orgPrograms).where(eq(s.orgPrograms.orgId, input.orgId)),
     ]);
     stores.sort((a, b) => a.name.localeCompare(b.name));
+    const house = houseName(org?.name);
     const ids = stores.map((x) => x.id);
     const [members, cov] = await Promise.all([
       ids.length ? db.select().from(s.members).where(and(inArray(s.members.storeId, ids), eq(s.members.status, "active"))) : Promise.resolve([]),
@@ -169,8 +174,8 @@ export const intake = {
             state: st.ticketTarget === DEFAULT_TICKET_TARGET && !conf.targets.includes(st.id) ? "check" : "done",
             detail:
               st.ticketTarget === DEFAULT_TICKET_TARGET && !conf.targets.includes(st.id)
-                ? `Still the $${DEFAULT_TICKET_TARGET} default. Confirm it with the owner.`
-                : `$${st.ticketTarget} full time, $${g.dinnerPart} part time`,
+                ? `Still the $${DEFAULT_TICKET_TARGET} default. Set it from their POS numbers and confirm it with the owner.${h.avgTicket ? ` Their last 12 months averaged $${h.avgTicket.toFixed(2)} a ticket.` : ""}`
+                : `$${st.ticketTarget} full time, $${g.dinnerPart} part time${h.avgTicket ? `. Last 12 months averaged $${h.avgTicket.toFixed(2)} a ticket` : ""}`,
           },
           {
             key: `lunch:${st.id}`,
@@ -232,7 +237,7 @@ export const intake = {
           key: `src:${m.kind}`,
           label: m.label,
           state: n ? "done" : m.required ? "missing" : "check",
-          detail: n ? `${n} on file` : `${m.required ? "Needed" : "Nice to have"}.${owner}`,
+          detail: n ? `${n} on file` : `${m.required ? "Needed" : "Nice to have"}.${owner}${m.fallback ? ` ${m.fallback}` : ""}`,
           fix: { tab: "materials" },
         } satisfies Gap;
       }),
@@ -240,8 +245,13 @@ export const intake = {
 
     const live = drift.items.filter((i) => i.status !== "excluded");
     const drafts = live.filter((i) => i.status === "draft").length;
-    const foreignItems = org?.isDemo ? [] : live.filter((i) => /\b1906\b/.test(JSON.stringify(i.data)));
+    const foreignItems = org?.isDemo ? [] : live.filter((i) => namesDemoHouse(i.data));
     const foreign = foreignItems.length;
+    // Standard items whose dishes, wines and drinks are BLM's sample, untouched for this client.
+    const stdBySlug = new Map(standardRows("", house).map((r) => [`${r.type}:${r.slug}`, JSON.stringify(r.data)]));
+    const sampleItems = org?.isDemo
+      ? []
+      : live.filter((i) => SAMPLE_SLUGS.has(i.slug) && i.origin === "standard" && stdBySlug.get(`${i.type}:${i.slug}`) === JSON.stringify(i.data));
     const changed = program ? live.filter((i) => i.updatedAt.getTime() > program.publishedAt.getTime()).length : 0;
     const behind = drift.stale.length + drift.add.length;
     groups.push({
@@ -265,6 +275,23 @@ export const intake = {
             ? `${foreign} items still name 1906: ${foreignItems.map((i) => i.title).join(", ")}. The AI can rewrite them from this client's material; check them before you approve.`
             : "Clean.",
           fix: foreign ? { action: "rewrite", ids: foreignItems.map((i) => i.id) } : undefined,
+        },
+        {
+          key: "sample",
+          label: "Menu, wine and bar written from their own lists",
+          state: sampleItems.length ? "check" : "done",
+          detail: sampleItems.length
+            ? `${sampleItems.length} items still carry the BLM sample menu, wines or drinks: ${sampleItems.map((i) => i.title).join(", ")}. Add their lists under Materials, then rewrite.`
+            : "Written for this house.",
+          fix: sampleItems.length
+            ? {
+                action: "rewrite",
+                ids: sampleItems.map((i) => i.id),
+                button: "Write from their lists",
+                instructions:
+                  "This item still carries the BLM sample dishes, wines, spirits, beers or cocktails. Replace them with this client's own, taken only from their menu, wine list and bar menu in the material. Keep prices, vintages and specs exactly as their material gives them; where it does not say, leave the detail out rather than invent it. Keep the structure and the section headings quizzes point to.",
+              }
+            : undefined,
         },
         {
           key: "published",

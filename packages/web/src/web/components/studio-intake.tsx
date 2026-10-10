@@ -208,13 +208,14 @@ function Missing({ orgId, onTab }: { orgId: string; onTab: (t: Tab) => void }) {
                           .mutateAsync({
                             ids: x.fix!.ids!,
                             instructions:
+                              x.fix!.instructions ??
                               "This item was written for the 1906 demo house. Rewrite every mention of 1906 for this client: their name, their story, their own cocktails, dishes and table setting, taken from their material and brief. Where the material does not say, write it plainly for this house and do not invent names, recipes or prices. Keep the structure, the section headings quizzes point to, and anything that is not about 1906.",
                           })
                           .catch(() => null);
                         if (r) setMsg(`${r.queued} items are being rewritten. They show as drafts on the build; check each one, then approve and publish.`);
                       }}
                     >
-                      <Sparkles className="size-3.5" /> {draft.isPending ? "Queuing…" : "Rewrite for this house"}
+                      <Sparkles className="size-3.5" /> {draft.isPending ? "Queuing…" : (x.fix.button ?? "Rewrite for this house")}
                     </button>
                   ) : x.state !== "done" && x.fix?.tab ? (
                     <button className="whitespace-nowrap pt-0.5 text-[12px] font-semibold text-ink-soft underline hover:text-ink" onClick={() => onTab(x.fix!.tab!)}>
