@@ -9,9 +9,10 @@ import { StoreTabs } from "./checklists";
 import { useAwardReward, useRevokeReward, useRewards } from "../queries/rewards";
 import { useLibrary } from "../queries/library";
 
-import { ROLE_LABEL } from "../../shared/domain";
+import { ROLE_LABEL, rolesList } from "../../shared/domain";
 import { BONUS_RULE, CONDUCT_BLOCK_RULE, PAYOUT_RULE } from "../../shared/metrics";
-import { errMsg, money } from "../lib/format";
+import { errMsg, money, shortDay } from "../lib/format";
+import { PERIOD_WORD, STATUS_CHIP, STATUS_LABEL, Tick } from "../components/reward-checks";
 import { cn } from "../lib/utils";
 
 const COUNT_WORD = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
@@ -44,14 +45,23 @@ export default function RewardsPage() {
             <p>
               <span className="font-semibold text-ink">Conduct.</span> {CONDUCT_BLOCK_RULE}
             </p>
+            <p>
+              <span className="font-semibold text-ink">Reading a board.</span> Each reward lists what it takes, and every colleague gets a tick or a cross on each point. Then one
+              status: <b className="text-ink">Eligible now</b> means everything is met if the period ended today. <b className="text-ink">Can still earn</b> means there is time
+              left. <b className="text-oxblood">Ineligible</b> means it can't be won this period, and the reason is written under their name: not enough shifts, ramping, conduct,
+              or too late.
+            </p>
           </div>
           {award.error && <div className="mb-4 text-[13px] text-oxblood">{errMsg(award.error)}</div>}
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="grid gap-5 xl:grid-cols-2">
             {q.data!.boards.map((b) => {
               const r = L.rewardByKey[b.key];
               if (!r) return null;
               const elig = b.entries.filter((e) => e.eligible);
-              const others = b.entries.filter((e) => !e.eligible).slice(0, open === b.key ? 20 : 3);
+              const order = { eligible: 0, can_earn: 1, ineligible: 2 } as const;
+              const rows = [...b.entries].sort((x, y) => order[x.status ?? "can_earn"] - order[y.status ?? "can_earn"]);
+              const shown = open === b.key ? rows : rows.slice(0, 6);
+              const word = b.closed ? `for ${b.period.label.split(" ")[0]}` : (PERIOD_WORD[r.cadence] ?? "this period");
               return (
                 <section key={b.key} className="rounded-[2px] border rule p-5">
                   <div className="flex items-start justify-between gap-3">
@@ -60,68 +70,113 @@ export default function RewardsPage() {
                         {r.n} · {r.cadence} · {b.period.label}
                       </div>
                       <h2 className="font-display text-[23px] leading-tight">{r.title}</h2>
-                      <div className="mt-1 text-[12.5px] text-ink-soft">{r.rule}</div>
-                      {b.basis && <div className="mt-1 text-[11.5px] text-ink-soft/80">{b.basis}</div>}
                     </div>
                     <span className="chip shrink-0 border-gold-deep/60 text-gold-deep">{r.value}</span>
                   </div>
-                  <div className="mt-4">
-                    {elig.length === 0 && <div className="py-2 text-[13px] text-ink-soft">Nobody qualifies yet this period.</div>}
-                    {elig.map((e) => {
-                      const done = b.awarded.find((a) => a.memberId === e.memberId);
-                      const mine = q.data!.meId === e.memberId;
-                      return (
-                        <div key={e.memberId} className={cn("flex items-center justify-between gap-3 border-b rule py-2.5 last:border-0", mine && "bg-gold/10 px-2")}>
-                          <div className="min-w-0">
-                            <Link href={`/team/${e.memberId}`} className="text-[14px] font-semibold hover:underline">
-                              {e.name}
-                            </Link>
-                            <span className="ml-2 text-[11.5px] text-ink-soft">{ROLE_LABEL[e.role]}</span>
-                            <div className="text-[12px] text-ink-soft">{e.metric}</div>
-                            {e.note && <div className="text-[11.5px] text-ink-soft/80">{e.note}</div>}
-                          </div>
-                          <div className="flex shrink-0 items-center gap-2">
-                            {e.amount ? <span className="figure text-[15px] text-sage">{money(e.amount)}</span> : null}
-                            {done ? (
-                              <span className="chip border-sage/50 text-sage">
-                                <Check className="size-3" /> Awarded
-                              </span>
-                            ) : q.data!.canAward ? (
-                              <button
-                                className="btn btn-ink !h-8 !px-3 !text-[12px]"
-                                disabled={award.isPending}
-                                onClick={() => award.mutate({ storeId: v.storeId, memberId: e.memberId, reward: b.key, period: e.period ?? b.period.key, amount: e.amount ?? null })}
-                              >
-                                <Award className="size-3.5" /> Award
-                              </button>
-                            ) : (
-                              <span className="chip border-gold-deep/60 text-gold-deep">Eligible</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {others.length > 0 && (
-                    <div className="mt-3 border-t rule pt-3">
-                      <div className="mb-1 text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-soft">Close behind</div>
-                      {others.map((e) => (
-                        <div key={e.memberId} className="flex justify-between gap-3 py-1 text-[12.5px] text-ink-soft">
-                          <span className="min-w-0">
-                            {e.name}
-                            {e.blocked && <span className="ml-2 chip !border-oxblood/40 !py-0 !text-[10.5px] !text-oxblood">Held back</span>}
-                            {e.note && <span className="block text-[11.5px] text-ink-soft/80">{e.note}</span>}
-                          </span>
-                          <span className="shrink-0 text-right">{e.metric}</span>
-                        </div>
-                      ))}
-                      {b.entries.filter((e) => !e.eligible).length > 3 && (
-                        <button className="mt-1 text-[12px] font-semibold underline" onClick={() => setOpen(open === b.key ? null : b.key)}>
-                          {open === b.key ? "Show less" : "Show everyone"}
-                        </button>
-                      )}
+                  <div className="mt-3 rounded-[2px] bg-paper-2/50 px-3.5 py-3">
+                    <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-ink-soft">What it takes</span>
+                      <span className="text-[11.5px] text-ink-soft">
+                        {b.openTo.length ? `Open to ${rolesList(b.openTo)}` : "Open to everyone on the floor"}
+                        {b.closed ? ` · judged on ${b.period.label}, now closed` : b.ends ? ` · ends ${shortDay(b.ends)}` : " · no end date"}
+                      </span>
                     </div>
-                  )}
+                    <ol className="space-y-0.5 text-[12.5px]">
+                      {b.criteria.map((c, i) => (
+                        <li key={c.label} className="flex gap-2">
+                          <span className="figure w-4 shrink-0 text-gold-deep">{i + 1}</span>
+                          <span>
+                            <b className="font-semibold">{c.short}.</b> {c.label}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                    <details className="mt-1.5 text-[11.5px] text-ink-soft">
+                      <summary className="cursor-pointer list-none font-semibold hover:text-ink">The rule in full</summary>
+                      <p className="mt-1">{r.rule}</p>
+                      {b.basis && <p className="mt-1">{b.basis}</p>}
+                    </details>
+                  </div>
+                  <div className="mt-3 overflow-x-auto">
+                    {rows.length === 0 ? (
+                      <div className="py-2 text-[13px] text-ink-soft">Nobody in a role this is open to yet.</div>
+                    ) : (
+                      <table className="w-full text-[12.5px]">
+                        <thead>
+                          <tr className="border-b rule text-left text-[10.5px] font-bold uppercase tracking-[0.1em] text-ink-soft">
+                            <th className="py-1.5 pr-2 font-bold">Colleague</th>
+                            {b.criteria.map((c, i) => (
+                              <th key={c.label} title={c.label} className="px-1.5 py-1.5 text-center font-bold whitespace-nowrap">
+                                {i + 1} {c.short}
+                              </th>
+                            ))}
+                            <th className="py-1.5 pl-2 text-right font-bold">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {shown.map((e) => {
+                            const done = b.awarded.find((a) => a.memberId === e.memberId);
+                            const mine = q.data!.meId === e.memberId;
+                            const st = e.status ?? "can_earn";
+                            return (
+                              <tr key={e.memberId} className={cn("border-b rule align-top last:border-0", mine && "bg-gold/10")}>
+                                <td className="py-2 pr-2">
+                                  {q.data!.canAward || mine ? (
+                                    <Link href={mine ? "/rewards/mine" : `/rewards/mine/${e.memberId}`} className="font-semibold hover:underline">
+                                      {e.name}
+                                    </Link>
+                                  ) : (
+                                    <span className="font-semibold">{e.name}</span>
+                                  )}
+                                  <span className="ml-1.5 text-[11px] text-ink-soft">{ROLE_LABEL[e.role]}</span>
+                                  {e.why && <div className={cn("mt-0.5 max-w-[34ch] text-[11.5px] leading-snug", st === "ineligible" ? "text-oxblood" : "text-ink-soft")}>{e.why}</div>}
+                                  {st === "eligible" && e.note && <div className="mt-0.5 text-[11.5px] text-ink-soft">{e.note}</div>}
+                                </td>
+                                {(e.checks ?? []).map((c) => (
+                                  <td key={c.label} title={`${c.label}: ${c.value}`} className="px-1.5 py-2 text-center whitespace-nowrap">
+                                    <span className="inline-flex items-center gap-1">
+                                      <Tick met={c.met} />
+                                      <span className={cn("text-[11.5px]", c.met ? "text-ink" : "text-ink-soft")}>{c.short === "Conduct" ? "" : c.value}</span>
+                                    </span>
+                                  </td>
+                                ))}
+                                <td className="py-2 pl-2 text-right">
+                                  {st === "eligible" ? (
+                                    <div className="flex flex-col items-end gap-1">
+                                      {e.amount ? <span className="figure text-[14px] text-sage">{money(e.amount)}</span> : null}
+                                      {done ? (
+                                        <span className="chip border-sage/50 text-sage">
+                                          <Check className="size-3" /> Awarded
+                                        </span>
+                                      ) : q.data!.canAward ? (
+                                        <button
+                                          className="btn btn-ink !h-8 !px-3 !text-[12px]"
+                                          disabled={award.isPending}
+                                          onClick={() => award.mutate({ storeId: v.storeId, memberId: e.memberId, reward: b.key, period: e.period ?? b.period.key, amount: e.amount ?? null })}
+                                        >
+                                          <Award className="size-3.5" /> Award
+                                        </button>
+                                      ) : (
+                                        <span className={cn("chip whitespace-nowrap", STATUS_CHIP.eligible)}>Eligible now</span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className={cn("chip whitespace-nowrap", STATUS_CHIP[st])}>{st === "ineligible" ? `Ineligible ${word}` : STATUS_LABEL[st]}</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                    {rows.length > 6 && (
+                      <button className="mt-1.5 text-[12px] font-semibold underline" onClick={() => setOpen(open === b.key ? null : b.key)}>
+                        {open === b.key ? "Show less" : `Show all ${rows.length}`}
+                      </button>
+                    )}
+                    {b.closed && <div className="mt-2 text-[11.5px] text-ink-soft">{b.period.label} is closed. Each colleague's page shows how this month is going.</div>}
+                  </div>
                   {b.awarded.filter((a) => !elig.some((e) => e.memberId === a.memberId)).length > 0 && (
                     <div className="mt-3 text-[12px] text-ink-soft">
                       Also awarded: {b.awarded.filter((a) => !elig.some((e) => e.memberId === a.memberId)).map((a) => a.memberName).join(", ")}

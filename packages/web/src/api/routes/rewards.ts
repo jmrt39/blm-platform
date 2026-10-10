@@ -15,6 +15,7 @@ import { loadLibrary } from "../lib/library";
 import { perfLines, rollingFrom } from "../lib/perf";
 import { quarterOf } from "../../shared/program";
 import { RAMP_DAYS } from "../../shared/metrics";
+import { rolesList } from "../../shared/domain";
 
 export const rewards = {
   /** The eight incentives, with who is eligible or leading for each this period. */
@@ -39,7 +40,7 @@ export const rewards = {
     };
   }),
 
-  /** One colleague's standing against every reward: qualified, close, on the way or held back. */
+  /** One colleague's standing against every reward: awarded, eligible now, can still earn, or out for the period, with why. */
   mine: viewerBase.input(z.object({ memberId: z.string().nullish() })).handler(async ({ input, context }) => {
     const v = context.viewer;
     const id = input.memberId ?? v.member?.id;
@@ -80,19 +81,23 @@ export const rewards = {
       const e = b.entries.find((x) => x.memberId === m.id) ?? null;
       const awarded = b.awarded.find((a) => a.memberId === m.id) ?? null;
       const leaders = b.entries.filter((x) => x.eligible).map((x) => x.name);
-      const p = e?.progress ?? null;
-      const state: "awarded" | "qualified" | "close" | "on_the_way" | "held_back" | "not_open" = awarded
+      // Awarded beats everything; a closed period that paid shows as eligible until it is given; otherwise the
+      // period still running decides (this month, for the rewards paid on last month).
+      const state: "awarded" | "eligible" | "can_earn" | "ineligible" | "not_open" = awarded
         ? "awarded"
         : !e
           ? "not_open"
-          : e.blocked
-            ? "held_back"
-            : e.eligible
-              ? "qualified"
-              : (p != null && p >= 0.9) || e.rank === 2
-                ? "close"
-                : "on_the_way";
-      return { key: b.key, period: b.period, basis: b.basis, entry: e, awarded, state, leaders: leaders.filter((n) => n !== m.name).slice(0, 3) };
+          : e.status === "eligible"
+            ? "eligible"
+            : (e.upcoming?.status ?? e.status ?? "can_earn");
+      const why = !e
+        ? `Not your role: open to ${rolesList(b.openTo)}`
+        : state === "eligible" || state === "awarded"
+          ? e.why
+          : e.upcoming && e.status !== "eligible"
+            ? e.upcoming.why
+            : e.why;
+      return { key: b.key, period: b.period, basis: b.basis, ends: b.ends, closed: b.closed, openTo: b.openTo, criteria: b.criteria, entry: e, awarded, state, why, leaders: leaders.filter((n) => n !== m.name).slice(0, 3) };
     });
     const year = today.slice(0, 4);
     return {

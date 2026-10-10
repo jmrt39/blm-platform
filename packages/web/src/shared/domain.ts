@@ -146,3 +146,12 @@ export const DEFAULT_CLOSING: { area: string; title: string }[] = [
   { area: "Office", title: "Checks closed out, drawers counted and dropped" },
   { area: "Office", title: "Doors locked, alarm set" },
 ];
+
+/** "servers, sommeliers and bartenders": a list of roles as a sentence. */
+export function rolesList(roles: string[]) {
+  const w = roles.map((r) => {
+    const l = (ROLE_LABEL[r] ?? r).toLowerCase();
+    return l.endsWith("s") ? l : `${l}s`;
+  });
+  return w.length < 2 ? (w[0] ?? "") : `${w.slice(0, -1).join(", ")} and ${w[w.length - 1]}`;
+}

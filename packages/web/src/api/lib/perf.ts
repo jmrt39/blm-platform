@@ -144,17 +144,20 @@ export function activeSpan(a: Action, resetOn: string | null): { from: string; t
 export type Block = { step: string; from: string; to: string; reason: string } | null;
 
 /** The first blocking write up live on any day of the period, if any. */
+const BLOCK_NAME: Record<string, string> = { written: "Written warning", plan: "Performance plan", termination: "Termination" };
+
 export function blockIn(acts: Action[], resetOn: string | null, from: string, to: string): Block {
   for (const a of acts) {
     const sp = activeSpan(a, resetOn);
     if (!sp || sp.from > to || sp.to < from) continue;
     const open = sp.to >= "9999";
-    const what = STEP_SHORT[a.step];
+    const what = BLOCK_NAME[a.step] ?? STEP_SHORT[a.step];
+    const d = (x: string) => new Date(`${x}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     return {
       step: a.step,
       from: sp.from,
       to: sp.to,
-      reason: open ? `${what} since ${sp.from}. No rewards while it stands.` : `${what} live ${sp.from} to ${sp.to}. No rewards for this period.`,
+      reason: open ? `${what} since ${d(sp.from)}. No rewards while it stands.` : `${what} on ${d(sp.from)}, live until ${d(sp.to)}. No rewards for this period.`,
     };
   }
   return null;

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link, useParams } from "wouter";
 import { motion } from "motion/react";
 import { Check, Lock, Sparkles } from "lucide-react";
+import { CheckList, PERIOD_WORD } from "../components/reward-checks";
 import { Page, Loading, ErrorNote } from "../components/shell";
 import { useViewer } from "../components/viewer";
 import { SectionTitle } from "../components/program-bits";
@@ -18,11 +19,10 @@ type State = Row["state"];
 
 const STATE: Record<State, { label: string; chip: string; order: number }> = {
   awarded: { label: "Awarded", chip: "border-sage/60 bg-sage/10 text-sage", order: 0 },
-  qualified: { label: "Qualified", chip: "border-gold-deep bg-gold/25 text-ink", order: 1 },
-  close: { label: "Close", chip: "border-gold-deep/70 text-gold-deep", order: 2 },
-  on_the_way: { label: "On the way", chip: "border-ink/25 text-ink-soft", order: 3 },
-  held_back: { label: "Held back", chip: "border-oxblood/50 bg-oxblood/5 text-oxblood", order: 4 },
-  not_open: { label: "Not for your role", chip: "border-ink/15 text-ink-soft", order: 5 },
+  eligible: { label: "Eligible now", chip: "border-gold-deep bg-gold/25 text-ink", order: 1 },
+  can_earn: { label: "Can still earn", chip: "border-ink/25 text-ink", order: 2 },
+  ineligible: { label: "Ineligible", chip: "border-oxblood/50 bg-oxblood/5 text-oxblood", order: 3 },
+  not_open: { label: "Not your role", chip: "border-ink/15 text-ink-soft", order: 4 },
 };
 
 const rise = (i: number) => ({
@@ -35,9 +35,9 @@ const rise = (i: number) => ({
 function Ring({ value, state }: { value: number | null | undefined; state: State }) {
   const r = 32;
   const c = 2 * Math.PI * r;
-  const done = state === "qualified" || state === "awarded";
+  const done = state === "eligible" || state === "awarded";
   const p = done ? 1 : Math.max(0, Math.min(1, value ?? 0));
-  const color = state === "held_back" ? "#8c2f2a" : state === "awarded" ? "#4d6b4f" : done ? "#c5af87" : "#8a7350";
+  const color = state === "ineligible" ? "#8c2f2a" : state === "awarded" ? "#4d6b4f" : done ? "#c5af87" : "#8a7350";
   return (
     <div className="relative size-[84px] shrink-0">
       <svg viewBox="0 0 80 80" className="size-full -rotate-90">
@@ -57,7 +57,7 @@ function Ring({ value, state }: { value: number | null | undefined; state: State
         />
       </svg>
       <div className="absolute inset-0 grid place-items-center">
-        {state === "held_back" ? (
+        {state === "ineligible" ? (
           <Lock className="size-5 text-oxblood" />
         ) : done ? (
           <motion.span initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 1, type: "spring", stiffness: 260, damping: 14 }}>
@@ -67,7 +67,7 @@ function Ring({ value, state }: { value: number | null | undefined; state: State
           <span className="figure text-[19px]">{value == null ? "0" : Math.round(p * 100)}%</span>
         )}
       </div>
-      {done && state === "qualified" && <Twinkle />}
+      {done && state === "eligible" && <Twinkle />}
     </div>
   );
 }
@@ -125,13 +125,20 @@ function Twinkle() {
   );
 }
 
-function RewardCard({ row, i }: { row: Row; i: number }) {
+/** Board text is written about a colleague; on your own page it reads to you. */
+const toYou = (s: string) => s.replace(/\bthem\b/g, "you").replace(/\btheir\b/g, "your").replace(/\bThey\b/g, "You");
+
+function RewardCard({ row, i, self }: { row: Row; i: number; self: boolean }) {
+  const say = (s: string) => (self ? toYou(s) : s);
   const L = useLibrary();
   const r = L.rewardByKey[row.key];
   if (!r) return null;
   const e = row.entry;
   const st = STATE[row.state];
-  const lit = row.state === "qualified" || row.state === "awarded";
+  const lit = row.state === "eligible" || row.state === "awarded";
+  const label = row.state === "ineligible" ? `Ineligible ${e?.upcoming && e.status !== "eligible" ? "this month" : (PERIOD_WORD[r.cadence] ?? "this period")}` : st.label;
+  // For rewards paid on last month, what to act on is the month now running.
+  const ahead = e?.upcoming && e.status !== "eligible" && !row.awarded ? e.upcoming : null;
   return (
     <motion.article {...rise(i)} className={cn("relative overflow-hidden rounded-[2px] border bg-paper p-5", lit ? "border-gold-deep/70 shadow-[0_10px_30px_-18px_rgba(138,115,80,0.7)]" : "rule")}>
       {lit && (
@@ -148,10 +155,10 @@ function RewardCard({ row, i }: { row: Row; i: number }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="eyebrow">
-              {r.cadence} · {row.period.label}
+              {r.cadence} · {ahead ? ahead.label : row.period.label}
             </div>
             <span className={cn("chip", st.chip)}>
-              {lit && <Sparkles className="size-3" />} {st.label}
+              {lit && <Sparkles className="size-3" />} {label}
             </span>
           </div>
           <h3 className="mt-1 font-display text-[22px] leading-tight">{r.title}</h3>
@@ -159,32 +166,45 @@ function RewardCard({ row, i }: { row: Row; i: number }) {
             {r.value}
             {row.key === "above_beyond" && e?.amount ? <> · {money(e.amount)} in all</> : null}
           </div>
+          {row.why && (
+            <div className={cn("mt-1.5 text-[13px] font-semibold leading-snug", row.state === "ineligible" ? "text-oxblood" : row.state === "not_open" ? "text-ink-soft" : "text-ink")}>
+              {say(row.why)}
+            </div>
+          )}
         </div>
       </div>
       {e && row.state !== "not_open" && (
-        <div className="mt-4 space-y-1.5 border-t rule pt-3 text-[12.5px]">
+        <div className="mt-4 space-y-3 border-t rule pt-3 text-[12.5px]">
           {row.awarded && (
             <div className="font-semibold text-sage">
               Awarded by {row.awarded.awardedByName} on {new Date(row.awarded.awardedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
               {row.awarded.amount ? ` · ${money(row.awarded.amount)}` : ""}
             </div>
           )}
-          {e.blocked ? (
-            <div className="text-oxblood">{e.note}</div>
-          ) : (
+          {ahead ? (
             <>
-              {e.next && <div className="font-display text-[16px] italic leading-snug">{e.next}</div>}
+              <CheckList title={`${ahead.label}: what it takes`} checks={ahead.checks.map((c) => ({ ...c, label: say(c.label) }))} />
+              <div className="text-ink-soft">
+                <span className="font-semibold text-ink">{row.period.label}:</span> {say(e.why ?? "not earned")}
+              </div>
+            </>
+          ) : (
+            e.checks && <CheckList title={`What it takes · ${row.period.label}`} checks={e.checks.map((c) => ({ ...c, label: say(c.label) }))} />
+          )}
+          {!e.blocked && (
+            <div className="space-y-1">
+              {e.next && row.state !== "ineligible" && <div className="font-display text-[16px] italic leading-snug">{e.next}</div>}
               <div className="text-ink-soft">{e.metric}</div>
               {e.live && <div className="text-ink-soft">{e.live}</div>}
               {e.eligible && e.amount ? <div className="font-semibold text-sage">{money(e.amount)}</div> : null}
-              {e.note && <div className="text-ink-soft">{e.note}</div>}
+              {e.note && !ahead && !row.why?.includes(e.note) && <div className="text-ink-soft">{e.note}</div>}
               {e.rank && row.leaders.length > 0 && !e.eligible && <div className="text-ink-soft">Leading now: {row.leaders.join(", ")}</div>}
-            </>
+            </div>
           )}
         </div>
       )}
       <details className="group mt-3 text-[12px] text-ink-soft">
-        <summary className="cursor-pointer list-none font-semibold text-ink-soft hover:text-ink">How it's earned</summary>
+        <summary className="cursor-pointer list-none font-semibold text-ink-soft hover:text-ink">The rule in full</summary>
         <p className="mt-1.5">{r.rule}</p>
         <p className="mt-1">{row.basis}</p>
       </details>
@@ -218,12 +238,12 @@ export default function MyRewardsPage() {
   const closed = rows.filter((r) => r.state === "not_open");
   const count = (s: State[]) => open.filter((r) => s.includes(r.state)).length;
   const numbers = [
-    { label: "Qualified", value: count(["qualified", "awarded"]), tone: "text-gold-deep" },
-    { label: "Close", value: count(["close"]), tone: "" },
-    { label: "On the way", value: count(["on_the_way"]), tone: "" },
+    { label: "Eligible now", value: count(["eligible", "awarded"]), tone: "text-gold-deep" },
+    { label: "Can still earn", value: count(["can_earn"]), tone: "" },
+    { label: "Ineligible", value: count(["ineligible"]), tone: count(["ineligible"]) ? "text-oxblood" : "" },
     { label: "Earned this year", value: money(d.earnedThisYear), tone: "text-sage" },
   ];
-  const held = count(["held_back"]);
+  const held = open.filter((r) => r.state === "ineligible" && r.why?.startsWith("Conduct")).length;
 
   return (
     <Page
@@ -279,7 +299,7 @@ export default function MyRewardsPage() {
 
       <div className="mt-10 grid gap-4 lg:grid-cols-2">
         {open.map((row, i) => (
-          <RewardCard key={row.key} row={row} i={i + 3} />
+          <RewardCard key={row.key} row={row} i={i + 3} self={d.isSelf} />
         ))}
       </div>
       {closed.length > 0 && (
