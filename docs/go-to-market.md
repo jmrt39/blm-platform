@@ -120,7 +120,7 @@ Then ask it to run lint and typecheck before it says it's finished.
 
 A new group starts from a **blank organisation**: no fake data, only the standard library. Setup takes about an hour with the GM, and this is the flow:
 
-1. **Owner signs up** and fills in one form: group name, first store, city, store PIN, spend per guest target (defaults to $78). That creates the org, the store, and the standard opening and closing checklists.
+1. **Owner signs up** and fills in one form: group name, first store, city, store PIN, spend per ticket target (defaults to $150). That creates the org, the store, and the standard opening and closing checklists.
 2. **The home page shows a "Getting started" card** with seven steps. It ticks itself off as the data arrives and disappears when everything is done:
    1. Add every store, with its PIN and target
    2. Add the GM and managers
@@ -132,7 +132,7 @@ A new group starts from a **blank organisation**: no fake data, only the standar
 3. **Roster import** (`Team → Import roster`): paste or upload a CSV exported from 7shifts, HotSchedules, Homebase or the POS. Columns are name, role, hire date, email, phone and trainer. Roles can be written plainly ("Food Runner", "GM"), and dates can be `2025-03-11` or `3/11/2025`. You get a preview before anything is saved. Every person gets a personal PIN, shown on screen to print for line-up. Running it twice is safe because existing names are skipped.
 4. **Hire dates drive the rules automatically.** Anyone under 30 days shows as ramping (not ranked, protected on slow nights), and anyone under 90 days gets a 30/60/90 plan.
 5. **Already in place for every new org:** the 14 standard training modules, the knowledge checks and the grading rubrics. They're shared across the library, so nothing has to be copied in.
-6. **The first week:** managers enter shift reports from the POS end-of-day screen. Spend per guest comparisons start after 3 shifts per person, and the 30-day picture fills in from there.
+6. **The first week:** managers enter shift reports from the POS end-of-day screen. Spend per ticket comparisons start after 3 shifts per person, and the 30-day picture fills in from there.
 
 7. **Before the group goes live, BLM builds their program in the Implementation Studio** (`/studio`, staff only):
    1. **Brief:** paste the audit findings (AI suggests weighted priorities you edit), owner preferences, reputation notes and the spend per ticket target for each store.
@@ -150,7 +150,7 @@ A new group starts from a **blank organisation**: no fake data, only the standar
 **In v1 (live now):**
 - Checklists with N/A and a reason
 - Shift reports
-- Spend per guest by server, with ramping excluded
+- Spend per ticket by server, with ramping excluded
 - Line-up and pre-shift board
 - Conduct and write-ups
 - Training modules, knowledge checks and graded floor exercises
