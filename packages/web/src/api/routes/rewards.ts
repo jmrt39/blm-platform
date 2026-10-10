@@ -23,7 +23,7 @@ export const rewards = {
       .orderBy(desc(s.rewardAwards.awardedAt))
       .limit(40);
     return {
-      store: { id: store.id, name: store.name, ppaTarget: store.ppaTarget },
+      store: { id: store.id, name: store.name, ticketTarget: store.ticketTarget },
       today,
       boards,
       history: history.map((h) => ({ ...h, awardedAt: h.awardedAt.getTime() })),

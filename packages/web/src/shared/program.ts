@@ -130,10 +130,16 @@ export function monthOf(date: string) {
   return { label, key: `${y}-${String(m).padStart(2, "0")}`, start: `${y}-${String(m).padStart(2, "0")}-01` };
 }
 
-/** Monthly spend per guest bonus tiers relative to the store target. */
-export function adsBonus(ppa: number, target: number) {
-  if (ppa >= target + 10) return 250;
-  if (ppa >= target + 5) return 200;
-  if (ppa >= target) return 150;
+/** Monthly spend per ticket bonus steps above the target. Bartender tickets are smaller, so their steps are too. */
+export function bonusSteps(role: string) {
+  return role === "bartender" ? [5, 10] : [12, 25];
+}
+
+/** Monthly spend per ticket bonus tiers relative to the person's target. */
+export function adsBonus(spt: number, target: number, role = "server") {
+  const [a, b] = bonusSteps(role);
+  if (spt >= target + b!) return 250;
+  if (spt >= target + a!) return 200;
+  if (spt >= target) return 150;
   return 0;
 }

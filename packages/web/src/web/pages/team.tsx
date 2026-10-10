@@ -1,3 +1,4 @@
+import { DEFAULT_TICKET_TARGET } from "../../shared/metrics";
 import { useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { motion } from "motion/react";
@@ -34,7 +35,7 @@ export function TeamPage() {
   const conduct = useConductOverview(scope, v.isManager);
   const standing = new Map((v.isManager ? (conduct.data?.people ?? []) : []).map((p) => [p.id, p]));
   const [filter, setFilter] = useState<"all" | "mgmt" | "staff" | "new">("all");
-  const target = v.store?.ppaTarget ?? 78;
+  const target = v.store?.ticketTarget ?? DEFAULT_TICKET_TARGET;
   const rows = (q.data ?? []).filter((m) =>
     filter === "all" ? true : filter === "mgmt" ? isManagementRole(m.role) : filter === "staff" ? !isManagementRole(m.role) : m.tenureDays <= 90,
   );
@@ -67,7 +68,7 @@ export function TeamPage() {
             { value: "new", label: "First 90 days" },
           ]}
         />
-        <div className="text-[12px] text-ink-soft">Spend per guest = last 30 nights, sales ÷ covers</div>
+        <div className="text-[12px] text-ink-soft">Spend per ticket = last 30 nights, sales ÷ tickets</div>
       </div>
       {q.isLoading ? (
         <Loading />
@@ -96,7 +97,7 @@ export function TeamPage() {
                 <th>Role</th>
                 {v.isLeader && !v.scope && <th>Store</th>}
                 <th>With us</th>
-                <th className="r">Spend per guest</th>
+                <th className="r">Spend per ticket</th>
                 {v.isManager && <th className="r">Rating</th>}
                 {v.isManager && <th>Strikes</th>}
                 <th>30 / 60 / 90</th>
@@ -122,7 +123,7 @@ export function TeamPage() {
                   </td>
                   {v.isLeader && !v.scope && <td className="text-ink-soft">{storeName(m.storeId)}</td>}
                   <td className="text-ink-soft">{tenure(m.tenureDays)}</td>
-                  <td className={cn("r font-semibold", m.ppa30 != null && (m.ppa30 >= target ? "text-sage" : "text-oxblood"))}>{m.ppa30 != null ? money2(m.ppa30) : "—"}</td>
+                  <td className={cn("r font-semibold", m.spt30 != null && (m.spt30 >= target ? "text-sage" : "text-oxblood"))}>{m.spt30 != null ? money2(m.spt30) : "—"}</td>
                   {v.isManager && (
                     <td className="r" title={ratingLabel(standing.get(m.id)?.rating?.overall)}>
                       <RatingFigure value={standing.get(m.id)?.rating?.overall} className="text-[18px]" />
@@ -166,7 +167,8 @@ export function MemberPage() {
   const { member: m, store, onboarding, sales, tenureDays, today, canManage, checklistLinesInitialled } = q.data;
   const totalSales = sales.reduce((a, s) => a + s.netSales, 0);
   const covers = sales.reduce((a, s) => a + s.covers, 0);
-  const ppa = covers ? totalSales / covers : 0;
+  const tickets = sales.reduce((a, s) => a + s.checks, 0);
+  const spt = tickets ? totalSales / tickets : 0;
   const phases = [30, 60, 90] as const;
   const seller = ["server", "sommelier", "bartender"].includes(m.role);
 
@@ -197,8 +199,8 @@ export function MemberPage() {
         <Stat label="With us" value={tenure(tenureDays)} sub={`Hired ${shortDay(m.hireDate)}`} />
         {seller && sales.length > 0 ? (
           <>
-            <Stat label="Spend per guest · 6 wks" value={money2(ppa)} tone={ppa >= store.ppaTarget ? "good" : "bad"} sub={`Store target ${money(store.ppaTarget)}`} />
-            <Stat label="Sales · 6 wks" value={money(totalSales)} sub={`${sales.length} shifts · ${covers} covers`} />
+            <Stat label="Spend per ticket · 6 wks" value={money2(spt)} tone={spt >= store.ticketTarget ? "good" : "bad"} sub={`Store target ${money(store.ticketTarget)}`} />
+            <Stat label="Sales · 6 wks" value={money(totalSales)} sub={`${sales.length} shifts · ${tickets} tickets · ${covers} covers`} />
           </>
         ) : (
           <>
@@ -212,10 +214,10 @@ export function MemberPage() {
       {seller && sales.length > 1 && (
         <div className="border-b rule py-8">
           <div className="mb-2 flex items-baseline justify-between">
-            <div className="eyebrow">Spend per guest by shift</div>
+            <div className="eyebrow">Spend per ticket by shift</div>
             <div className="text-[11.5px] text-ink-soft">dashed = store target</div>
           </div>
-          <Spark data={sales.map((s) => (s.covers ? s.netSales / s.covers : 0))} target={store.ppaTarget} height={90} />
+          <Spark data={sales.map((s) => (s.checks ? s.netSales / s.checks : 0))} target={store.ticketTarget} height={90} />
         </div>
       )}
 

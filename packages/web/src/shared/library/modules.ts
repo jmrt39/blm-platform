@@ -123,7 +123,7 @@ export const MODULES: Module[] = [
           "The finish — dessert, a digestif, a coffee. Ask every table.",
         ],
       },
-      { h: "Our target", say: "Store target: $78 spend per guest at the Bar & Grille (net sales ÷ covers). Every server's spend per guest shows on their profile after each shift report." },
+      { h: "Our target", say: "Store target: $190 spend per ticket at the Bar & Grille (net sales ÷ tickets). Every server's spend per ticket shows on their profile after each shift report." },
       { h: "What it is not", p: "Never push. If a guest says no, thank them and move on. Recommend what you'd order yourself, and say why." },
     ],
   },

@@ -67,3 +67,25 @@ mobile app (staff), Sign in button on bottomlinemultiplied.com (site not in this
 - [x] 5. docs/go-to-market.md.
 - [x] 6. Website: six shifts copy, new terms + guarantee, Sign in link (VITE_PLATFORM_URL), FAQ rewritten, sample audit formulas on every gap, totals reconciled ($249,116 / $173,799). Committed; push needs GitHub credentials.
 - [x] 7. 90 s cut: /home/user/film90/1906-platform-demo-90s.mp4 (+720p), audio trimmed to match video; web copy in public/videos/platform-demo-90s.mp4.
+
+## Request 2026-10-10 (b): spend per ticket + Implementation Studio
+Decisions (user answered form):
+- Spend per ticket replaces spend per guest EVERYWHERE: net sales ÷ tickets (checks) for targets, rankings, bonuses, opportunity model.
+  Average check metric merged into it. Covers stay as volume. Bartender target share 0.4 (was 0.66 per guest).
+  Demo targets: B&G $190, Riverside $178, Heights $198. Bonus tiers $150 at target, $200 at +$12, $250 at +$25.
+  DB column stays ppa_target, TS key ticketTarget.
+- Studio (/studio): BLM only (us), gated by BLM_STUDIO_CODE once per account -> studio_staff. Clients = orgs.
+  Steps: Brief (audit findings priorities + owner preferences + targets) -> Materials (paste/upload docs, AI extracts) ->
+  History (last year daily CSV per store, for on this day last year) -> Build (AI drafts from BLM standard copy; review/approve) -> Publish (compile org program).
+- Each org starts from a copy of the BLM standard library. Published program stored per org (org_programs). No row = BLM standard.
+- AI drafts quizzes, floor exercises (repeatable cadence), POS knowledge checks; nothing reaches client until approved + published.
+
+Progress
+- [ ] ticket conversion
+- [ ] schema (studio_staff, implementations, sources, content_items, org_programs, history_days)
+- [ ] library per org (api loader + web useLibrary)
+- [ ] history import + YoY home/reports + demo seed history
+- [ ] studio api (clients, brief, sources+extract, drafts, review, publish)
+- [ ] studio web
+- [ ] repeatable floor exercises, talking points on line-up
+- [ ] verify, deliver, push

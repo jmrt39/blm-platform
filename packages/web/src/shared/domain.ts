@@ -88,7 +88,7 @@ export function onboardingPlan(role: string): { phase: 30 | 60 | 90; title: stri
   }
   plan.push(
     { phase: 60, title: "First solo section", detail: "Manager observes one full turn and gives notes." },
-    { phase: 60, title: "Spend per guest at or near store target", detail: "Reviewed against the shift reports." },
+    { phase: 60, title: "Spend per ticket at or near store target", detail: "Reviewed against the shift reports." },
     { phase: 90, title: "Full floor sign-off", detail: "All competencies rated by a manager." },
     { phase: 90, title: "90-day review with GM", detail: "Goals, feedback, and the next step." },
   );

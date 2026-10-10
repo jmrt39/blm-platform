@@ -1,3 +1,4 @@
+import { targetForRole } from "../../shared/metrics";
 import { and, eq, gte, inArray, lt, ne } from "drizzle-orm";
 import { db } from "../database";
 import * as s from "../database/schema";
@@ -93,7 +94,7 @@ export type Rating = {
   conduct: number;
   strikes: number;
   parts: { checkAvg: number | null; sales: number | null; checklists: number };
-  ppa30: number | null;
+  spt30: number | null;
 };
 
 const clamp = (n: number) => Math.max(0, Math.min(100, n));
@@ -116,14 +117,14 @@ export async function computeRatings(storeIds: string[]) {
     .where(and(inArray(s.members.storeId, storeIds), eq(s.members.status, "active")));
   if (!members.length) return out;
   const stores = await db.select().from(s.stores).where(inArray(s.stores.id, storeIds));
-  const target = new Map(stores.map((x) => [x.id, x.ppaTarget]));
+  const target = new Map(stores.map((x) => [x.id, x.ticketTarget]));
 
   const lines = await db
-    .select({ memberId: s.shiftReportLines.memberId, role: s.shiftReportLines.role, sales: s.shiftReportLines.netSales, covers: s.shiftReportLines.covers, storeId: s.shiftReports.storeId })
+    .select({ memberId: s.shiftReportLines.memberId, role: s.shiftReportLines.role, sales: s.shiftReportLines.netSales, checks: s.shiftReportLines.checks, storeId: s.shiftReports.storeId })
     .from(s.shiftReportLines)
     .innerJoin(s.shiftReports, eq(s.shiftReports.id, s.shiftReportLines.reportId))
     .where(and(inArray(s.shiftReports.storeId, storeIds), gte(s.shiftReports.businessDate, since)));
-  const perf = new Map<string, { sales: number; covers: number; shifts: number }>();
+  const perf = new Map<string, { sales: number; checks: number; shifts: number }>();
   const peer = new Map<string, { sales: number; shifts: number }>(); // store|bar-or-floor
   for (const l of lines) {
     const k = `${l.storeId}|${l.role === "bartender" ? "bar" : "floor"}`;
@@ -132,9 +133,9 @@ export async function computeRatings(storeIds: string[]) {
     pp.shifts += 1;
     peer.set(k, pp);
     if (!l.memberId) continue;
-    const p = perf.get(l.memberId) ?? { sales: 0, covers: 0, shifts: 0 };
+    const p = perf.get(l.memberId) ?? { sales: 0, checks: 0, shifts: 0 };
     p.sales += l.sales;
-    p.covers += l.covers;
+    p.checks += l.checks;
     p.shifts += 1;
     perf.set(l.memberId, p);
   }
@@ -190,9 +191,9 @@ export async function computeRatings(storeIds: string[]) {
       performance = checklists;
     } else {
       checklists = clamp(70 + 3 * (initialled.get(m.id) ?? 0));
-      if (SELLERS.includes(m.role) && p && p.covers) {
-        const t = target.get(m.storeId) ?? 78;
-        const ratio = p.sales / p.covers / (m.role === "bartender" ? t * 0.66 : t);
+      if (SELLERS.includes(m.role) && p && p.checks) {
+        const t = target.get(m.storeId) ?? 190;
+        const ratio = p.sales / p.checks / targetForRole(m.role, t);
         checkAvg = clamp(80 + (ratio - 1) * 250);
         const pr = peer.get(`${m.storeId}|${m.role === "bartender" ? "bar" : "floor"}`);
         const peerAvg = pr && pr.shifts ? pr.sales / pr.shifts : 0;
@@ -207,7 +208,7 @@ export async function computeRatings(storeIds: string[]) {
       conduct,
       strikes: st,
       parts: { checkAvg: checkAvg == null ? null : Math.round(checkAvg), sales: sales == null ? null : Math.round(sales), checklists: Math.round(checklists) },
-      ppa30: p && p.covers ? p.sales / p.covers : null,
+      spt30: p && p.checks ? p.sales / p.checks : null,
     });
   }
   return out;

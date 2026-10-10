@@ -4,10 +4,11 @@ import { db } from "../database";
 import * as s from "../database/schema";
 import { addDays, daysBetween } from "./time";
 import { computeRatings } from "./conduct";
-import { CERT_KINDS, GRADE_PASS, moduleNeeds, monthOf, quarterOf, requiredCerts, type CertKind, type ModuleStatus } from "../../shared/program";
+import { adsBonus, CERT_KINDS, GRADE_PASS, moduleNeeds, monthOf, quarterOf, requiredCerts, type CertKind, type ModuleStatus } from "../../shared/program";
 import { MODULES, modulesFor } from "../../shared/library/modules";
 import { REWARDS, type RewardKey } from "../../shared/library/rewards";
 import { isManagementRole } from "../../shared/domain";
+import { targetForRole } from "../../shared/metrics";
 
 type Member = typeof s.members.$inferSelect;
 
@@ -157,16 +158,16 @@ export async function certsFor(members: Pick<Member, "id" | "role">[], today: st
 /** Sales per member per date range, from shift report lines. */
 async function salesBy(storeId: string, from: string, to: string) {
   const rows = await db
-    .select({ memberId: s.shiftReportLines.memberId, sales: s.shiftReportLines.netSales, covers: s.shiftReportLines.covers, date: s.shiftReports.businessDate })
+    .select({ memberId: s.shiftReportLines.memberId, sales: s.shiftReportLines.netSales, checks: s.shiftReportLines.checks, date: s.shiftReports.businessDate })
     .from(s.shiftReportLines)
     .innerJoin(s.shiftReports, eq(s.shiftReports.id, s.shiftReportLines.reportId))
     .where(and(eq(s.shiftReports.storeId, storeId), gte(s.shiftReports.businessDate, from)));
-  const m = new Map<string, { sales: number; covers: number; shifts: number }>();
+  const m = new Map<string, { sales: number; checks: number; shifts: number }>();
   for (const r of rows) {
     if (!r.memberId || r.date > to) continue;
-    const p = m.get(r.memberId) ?? { sales: 0, covers: 0, shifts: 0 };
+    const p = m.get(r.memberId) ?? { sales: 0, checks: 0, shifts: 0 };
     p.sales += r.sales;
-    p.covers += r.covers;
+    p.checks += r.checks;
     p.shifts += 1;
     m.set(r.memberId, p);
   }
@@ -192,8 +193,8 @@ export type RewardBoard = {
 };
 
 const SELLERS = ["server", "sommelier", "bartender"];
-const targetFor = (role: string, target: number) => (role === "bartender" ? Math.round(target * 0.66) : target);
-const ads = (p?: { sales: number; covers: number }) => (p && p.covers ? p.sales / p.covers : null);
+const targetFor = targetForRole;
+const ads = (p?: { sales: number; checks: number }) => (p && p.checks ? p.sales / p.checks : null);
 
 /** Who is eligible — or leading — for each of the eight rewards at one store. */
 export async function rewardsBoard(store: typeof s.stores.$inferSelect, today: string): Promise<RewardBoard[]> {
@@ -221,7 +222,7 @@ export async function rewardsBoard(store: typeof s.stores.$inferSelect, today: s
   ]);
   const quotesIn = (id: string, from: string) => feedback.filter((f) => f.receivedOn >= from && f.memberIds.includes(id)).length;
   const sellers = members.filter((m) => SELLERS.includes(m.role));
-  const T = store.ppaTarget;
+  const T = store.ticketTarget;
   const fmt = (n: number | null) => (n == null ? "—" : `$${n.toFixed(2)}`);
   const allSigned = (id: string) => {
     const p = program.get(id);
@@ -260,7 +261,7 @@ export async function rewardsBoard(store: typeof s.stores.$inferSelect, today: s
       const t = targetFor(m.role, T);
       const v = ads(lastSales.get(m.id));
       const live = ads(mtdSales.get(m.id));
-      const amount = v == null ? 0 : v >= t + 10 ? 250 : v >= t + 5 ? 200 : v >= t ? 150 : 0;
+      const amount = v == null ? 0 : adsBonus(v, t, m.role);
       return {
         memberId: m.id,
         name: m.name,
@@ -278,7 +279,7 @@ export async function rewardsBoard(store: typeof s.stores.$inferSelect, today: s
       .filter((m) => m.role !== "bartender")
       .map((m) => {
         const v = ads(lastSales.get(m.id));
-        return { memberId: m.id, name: m.name, role: m.role, value: v, metric: `${fmt(v)} spend per guest`, eligible: false };
+        return { memberId: m.id, name: m.name, role: m.role, value: v, metric: `${fmt(v)} spend per ticket`, eligible: false };
       }),
   );
   if (floorLeaders[0]?.value != null) floorLeaders[0].eligible = true;

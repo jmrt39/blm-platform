@@ -42,7 +42,7 @@ export function HowCalculated({ metric, period, extra, dark, className }: { metr
           <Row k="Source" v={m.source} />
           {period && <Row k="Period" v={period} />}
           <Row k="Excludes" v={m.exclusions} />
-          {(metric === "netSales" || metric === "spendPerGuest" || metric === "avgCheck") && <Row k="Net sales" v={NET_SALES_RULE} />}
+          {(metric === "netSales" || metric === "spendPerTicket" || metric === "serverSpend") && <Row k="Net sales" v={NET_SALES_RULE} />}
           {extra}
         </span>
       )}

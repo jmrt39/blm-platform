@@ -1,3 +1,4 @@
+import { DEFAULT_TICKET_TARGET } from "../../shared/metrics";
 import { useCallback, useMemo, useState } from "react";
 import { Link, useSearch } from "wouter";
 import { motion } from "motion/react";
@@ -77,7 +78,7 @@ function linesFromCsv(text: string, roster: RosterRow[]): { lines: Line[]; unmat
   const head = rows[0]!.map((h) => h.trim().toLowerCase());
   const col = (k: string) => head.findIndex((h) => ALIASES[k]!.includes(h));
   const idx = Object.fromEntries(Object.keys(ALIASES).map((k) => [k, col(k)]));
-  if (idx.name! < 0 || idx.netSales! < 0 || idx.covers! < 0) return { lines: [], unmatched: [], error: "Columns needed: name, net_sales, covers." };
+  if (idx.name! < 0 || idx.netSales! < 0 || idx.checks! < 0) return { lines: [], unmatched: [], error: "Columns needed: name, net_sales, checks (tickets). Covers are optional." };
   const unmatched: string[] = [];
   const lines = rows.slice(1).map((r) => {
     const name = (r[idx.name!] ?? "").trim();
@@ -144,7 +145,7 @@ export default function ShiftReportPage() {
 function History({ onOpen }: { onOpen: (d: string) => void }) {
   const v = useViewer();
   const q = useShiftList(v.storeId);
-  const target = v.store?.ppaTarget ?? 78;
+  const target = v.store?.ticketTarget ?? DEFAULT_TICKET_TARGET;
   if (q.isLoading) return <Loading />;
   if (!q.data?.length) return <Empty>No shift reports yet.</Empty>;
   return (
@@ -154,8 +155,8 @@ function History({ onOpen }: { onOpen: (d: string) => void }) {
           <tr>
             <th>Night</th>
             <th className="r">Net sales</th>
-            <th className="r">Covers</th>
-            <th className="r">Spend / guest</th>
+            <th className="r">Tickets</th>
+            <th className="r">Spend / ticket</th>
             <th className="r">Comps + voids</th>
             <th>Source</th>
             <th>Submitted by</th>
@@ -166,8 +167,8 @@ function History({ onOpen }: { onOpen: (d: string) => void }) {
             <tr key={r.id} className="cursor-pointer hover:bg-paper-2/50" onClick={() => onOpen(r.businessDate)}>
               <td className="font-semibold">{shortDay(r.businessDate)}</td>
               <td className="r figure text-[16px]">{money(r.netSales)}</td>
-              <td className="r">{num(r.covers)}</td>
-              <td className={cn("r font-semibold", r.ppa >= target ? "text-sage" : "text-oxblood")}>{money2(r.ppa)}</td>
+              <td className="r">{num(r.checks)}</td>
+              <td className={cn("r font-semibold", r.spt >= target ? "text-sage" : "text-oxblood")}>{money2(r.spt)}</td>
               <td className="r">{money(r.comps + r.voids)}</td>
               <td>
                 <span className="chip">{r.source === "csv" ? "CSV import" : "Typed in"}</span>
@@ -189,7 +190,7 @@ function NightView({ date, onBack }: { date: string; onBack: () => void }) {
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorNote error={q.error} />;
   const r = q.data?.report;
-  const target = q.data?.store.ppaTarget ?? 78;
+  const target = q.data?.store.ticketTarget ?? DEFAULT_TICKET_TARGET;
   return (
     <div>
       <button onClick={onBack} className="mb-5 text-[12.5px] font-semibold text-gold-deep hover:underline">
@@ -202,8 +203,8 @@ function NightView({ date, onBack }: { date: string; onBack: () => void }) {
           <div className="mb-6 font-display text-[26px]">{dayLabel(date)}</div>
           <div className="grid grid-cols-2 gap-6 border-b rule pb-8 md:grid-cols-4">
             <Stat label="Net sales" value={money(r.netSales)} />
-            <Stat label="Covers" value={num(r.covers)} sub={`${r.checks} checks`} />
-            <Stat label="Average check" value={money2(r.ppa)} tone={r.ppa >= target ? "good" : "bad"} sub={`Target ${money(target)}`} />
+            <Stat label="Tickets" value={num(r.checks)} sub={`${r.covers} covers`} />
+            <Stat label="Spend per ticket" value={money2(r.spt)} tone={r.spt >= target ? "good" : "bad"} sub={`Target ${money(target)}`} />
             <Stat label="Comps · voids · discounts" value={money(r.comps + r.voids + r.discounts)} sub={`${r.walkouts} walkouts`} />
           </div>
           <table className="tbl mt-6">
@@ -212,21 +213,21 @@ function NightView({ date, onBack }: { date: string; onBack: () => void }) {
                 <th>Name</th>
                 <th>Role</th>
                 <th className="r">Net sales</th>
-                <th className="r">Covers</th>
-                <th className="r">Spend / guest</th>
+                <th className="r">Tickets</th>
+                <th className="r">Spend / ticket</th>
                 <th className="r">Wine btl</th>
                 <th className="r">Desserts</th>
               </tr>
             </thead>
             <tbody>
               {r.lines.map((l) => {
-                const p = l.covers ? l.netSales / l.covers : 0;
+                const p = l.checks ? l.netSales / l.checks : 0;
                 return (
                   <tr key={l.id}>
                     <td className="font-semibold">{l.memberId ? <Link href={`/team/${l.memberId}`} className="hover:underline">{l.name}</Link> : l.name}</td>
                     <td className="text-ink-soft">{ROLE_LABEL[l.role] ?? l.role}</td>
                     <td className="r">{money2(l.netSales)}</td>
-                    <td className="r">{l.covers}</td>
+                    <td className="r">{l.checks}</td>
                     <td className={cn("r font-semibold", SELLERS.has(l.role) && l.role !== "bartender" ? (p >= target ? "text-sage" : "text-oxblood") : "")}>{money2(p)}</td>
                     <td className="r">{l.wineBottles}</td>
                     <td className="r">{l.desserts}</td>
@@ -278,13 +279,14 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
   const [csvMsg, setCsvMsg] = useState<{ error?: string; unmatched: string[] } | null>(null);
   const [sig, setSig] = useState("");
   const onSig = useCallback((s: string) => setSig(s), []);
-  const target = v.store?.ppaTarget ?? 78;
+  const target = v.store?.ticketTarget ?? DEFAULT_TICKET_TARGET;
   const people = useMemo(() => (roster.data ?? []).slice().sort((a, b) => a.name.localeCompare(b.name)), [roster.data]);
 
-  const filled = lines.filter((l) => l.name && (n(l.netSales) > 0 || n(l.covers) > 0));
+  const filled = lines.filter((l) => l.name && (n(l.netSales) > 0 || n(l.checks) > 0));
   const sales = filled.reduce((a, l) => a + n(l.netSales), 0);
   const covers = filled.reduce((a, l) => a + n(l.covers), 0);
-  const ppa = covers ? sales / covers : 0;
+  const tickets = filled.reduce((a, l) => a + n(l.checks), 0);
+  const spt = tickets ? sales / tickets : 0;
 
   const upd = (key: string, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   const addSellers = () => {
@@ -395,10 +397,10 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
                 <th className="min-w-[200px]">Who worked</th>
                 <th className="r">Net sales</th>
                 <th className="r">Covers</th>
-                <th className="r">Checks</th>
+                <th className="r">Tickets</th>
                 <th className="r">Wine btl</th>
                 <th className="r">Desserts</th>
-                <th className="r">Avg</th>
+                <th className="r">Per ticket</th>
                 <th>
                   <span className="sr-only">Remove</span>
                 </th>
@@ -406,7 +408,7 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
             </thead>
             <tbody>
               {lines.map((l) => {
-                const p = n(l.covers) ? n(l.netSales) / n(l.covers) : 0;
+                const p = n(l.checks) ? n(l.netSales) / n(l.checks) : 0;
                 return (
                   <tr key={l.key}>
                     <td className="!py-1.5">
@@ -486,12 +488,12 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
               <div className="figure text-[34px] leading-none">{money(sales)}</div>
             </div>
             <div>
-              <div className="text-[12px] text-[#b9b0a3]">Covers</div>
-              <div className="figure text-[28px] leading-none">{num(covers)}</div>
+              <div className="text-[12px] text-[#b9b0a3]">Tickets · covers</div>
+              <div className="figure text-[28px] leading-none">{num(tickets)} <span className="text-[16px] text-[#b9b0a3]">· {num(covers)}</span></div>
             </div>
             <div>
-              <div className="text-[12px] text-[#b9b0a3]">Spend per guest · target {money(target)}</div>
-              <div className={cn("figure text-[34px] leading-none", ppa ? (ppa >= target ? "text-[#9cc59f]" : "text-[#e08b84]") : "text-ivory")}>{money2(ppa)}</div>
+              <div className="text-[12px] text-[#b9b0a3]">Spend per ticket · target {money(target)}</div>
+              <div className={cn("figure text-[34px] leading-none", spt ? (spt >= target ? "text-[#9cc59f]" : "text-[#e08b84]") : "text-ivory")}>{money2(spt)}</div>
             </div>
           </div>
         </div>
@@ -502,7 +504,7 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
           <button disabled={!filled.length || !sig || submit.isPending} onClick={send} className="btn btn-ink mt-3 w-full">
             {submit.isPending ? "Submitting…" : "Sign & submit the night"}
           </button>
-          {!filled.length && <div className="mt-2 text-[12px] text-ink-soft">Add at least one person with sales or covers.</div>}
+          {!filled.length && <div className="mt-2 text-[12px] text-ink-soft">Add at least one person with sales or tickets.</div>}
         </div>
       </aside>
     </div>

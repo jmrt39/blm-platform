@@ -15,9 +15,9 @@ type Person = {
   trainer?: boolean;
   /** Days since hire. */
   tenure: number;
-  /** Baseline spend per guest for floor sales staff. */
+  /** Baseline sales per cover for floor sales staff (seed input; tickets are derived from covers). */
   ppa?: number;
-  /** Per-day improvement in spend per guest (new hires ramping up). */
+  /** Per day improvement in sales per cover (new hires ramping up). */
   ramp?: number;
   initials?: string;
 };
@@ -27,7 +27,7 @@ type StoreSpec = {
   city: string;
   pin: string;
   coversBase: number;
-  ppaTarget: number;
+  ticketTarget: number;
   /** Probability a checklist is submitted late / missed. */
   late: number;
   missed: number;
@@ -42,7 +42,7 @@ const SPECS: StoreSpec[] = [
     city: "Main Street",
     pin: "1906",
     coversBase: 118,
-    ppaTarget: 78,
+    ticketTarget: 190,
     late: 0.06,
     missed: 0.0,
     people: [
@@ -69,7 +69,7 @@ const SPECS: StoreSpec[] = [
     city: "Harbor District",
     pin: "2210",
     coversBase: 96,
-    ppaTarget: 74,
+    ticketTarget: 178,
     late: 0.14,
     missed: 0.05,
     people: [
@@ -93,7 +93,7 @@ const SPECS: StoreSpec[] = [
     city: "Hillcrest",
     pin: "3315",
     coversBase: 104,
-    ppaTarget: 82,
+    ticketTarget: 198,
     late: 0.08,
     missed: 0.02,
     people: [
@@ -158,7 +158,7 @@ export async function seedDemoOrg(user: { id: string; name: string; email: strin
       city: spec.city,
       pin: spec.pin,
       timezone: TZ,
-      ppaTarget: spec.ppaTarget,
+      ticketTarget: spec.ticketTarget,
     });
     storeOut.push({ id: storeId, number, name: spec.name, pin: spec.pin });
 
@@ -401,7 +401,7 @@ export async function seedDemoOrg(user: { id: string; name: string; email: strin
       id: storeId,
       name: spec.name,
       si,
-      ppaTarget: spec.ppaTarget,
+      ticketTarget: spec.ticketTarget,
       roster: roster.map((r) => ({ id: r.id, name: r.name, role: r.role, hireDate: r.hireDate, tenure: r.spec.tenure, ppa: r.spec.ppa, isTrainer: r.isTrainer })),
     });
   }

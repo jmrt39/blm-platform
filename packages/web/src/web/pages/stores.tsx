@@ -17,7 +17,7 @@ type StoreRow = NonNullable<ReturnType<typeof useStores>["data"]>[number];
 function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
   const update = useUpdateStore();
   const [edit, setEdit] = useState(false);
-  const [f, setF] = useState({ name: s.name, city: s.city, pin: s.pin ?? "", ppaTarget: String(s.ppaTarget), openingDueBy: s.openingDueBy, closingDueBy: s.closingDueBy });
+  const [f, setF] = useState({ name: s.name, city: s.city, pin: s.pin ?? "", ticketTarget: String(s.ticketTarget), openingDueBy: s.openingDueBy, closingDueBy: s.closingDueBy });
   const [err, setErr] = useState<string | null>(null);
   return (
     <div className="border border-paper-line bg-paper-2/40 p-5">
@@ -40,8 +40,8 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
             <dd className="figure text-[18px] tracking-[0.2em]">{s.pin ?? "••••"}</dd>
           </div>
           <div>
-            <dt className="label">Spend per guest target</dt>
-            <dd className="figure text-[18px]">${s.ppaTarget}</dd>
+            <dt className="label">Spend per ticket target</dt>
+            <dd className="figure text-[18px]">${s.ticketTarget}</dd>
           </div>
           <div>
             <dt className="label">Opening due</dt>
@@ -67,7 +67,7 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
                 id: s.id,
                 name: f.name,
                 city: f.city,
-                ppaTarget: Number(f.ppaTarget),
+                ticketTarget: Number(f.ticketTarget),
                 openingDueBy: f.openingDueBy,
                 closingDueBy: f.closingDueBy,
                 ...(f.pin && f.pin !== s.pin ? { pin: f.pin } : {}),
@@ -91,8 +91,8 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
             <input aria-label="Store PIN" className="field" inputMode="numeric" maxLength={6} value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value.replace(/\D/g, "") })} />
           </label>
           <label>
-            <span className="label">Spend per guest target ($)</span>
-            <input aria-label="Spend per guest target ($)" className="field" type="number" value={f.ppaTarget} onChange={(e) => setF({ ...f, ppaTarget: e.target.value })} />
+            <span className="label">Spend per ticket target ($)</span>
+            <input aria-label="Spend per ticket target ($)" className="field" type="number" required min={10} value={f.ticketTarget} onChange={(e) => setF({ ...f, ticketTarget: e.target.value })} />
           </label>
           <label>
             <span className="label">Opening due by</span>
@@ -119,7 +119,7 @@ function StoreCard({ s, canEdit }: { s: StoreRow; canEdit: boolean }) {
 
 function NewStore({ onDone }: { onDone: () => void }) {
   const create = useCreateStore();
-  const [f, setF] = useState({ name: "", city: "", pin: "", ppaTarget: "78" });
+  const [f, setF] = useState({ name: "", city: "", pin: "", ticketTarget: "" });
   const [made, setMade] = useState<{ number: string } | null>(null);
   if (made)
     return (
@@ -139,7 +139,7 @@ function NewStore({ onDone }: { onDone: () => void }) {
       className="grid grid-cols-2 gap-4 border border-paper-line bg-paper-2/60 p-5 md:grid-cols-5"
       onSubmit={async (e) => {
         e.preventDefault();
-        const r = await create.mutateAsync({ name: f.name, city: f.city, pin: f.pin, ppaTarget: Number(f.ppaTarget) }).catch(() => null);
+        const r = await create.mutateAsync({ name: f.name, city: f.city, pin: f.pin, ticketTarget: Number(f.ticketTarget) }).catch(() => null);
         if (r) setMade(r);
       }}
     >
@@ -156,8 +156,8 @@ function NewStore({ onDone }: { onDone: () => void }) {
         <input aria-label="Store PIN" className="field" required inputMode="numeric" maxLength={6} value={f.pin} onChange={(e) => setF({ ...f, pin: e.target.value.replace(/\D/g, "") })} placeholder="4–6 digits" />
       </label>
       <label>
-        <span className="label">Spend per guest target ($)</span>
-        <input aria-label="Spend per guest target ($)" className="field" type="number" value={f.ppaTarget} onChange={(e) => setF({ ...f, ppaTarget: e.target.value })} />
+        <span className="label">Spend per ticket target ($)</span>
+        <input aria-label="Spend per ticket target ($)" className="field" type="number" required min={10} value={f.ticketTarget} onChange={(e) => setF({ ...f, ticketTarget: e.target.value })} />
       </label>
       <div className="col-span-2 flex items-center gap-2 md:col-span-5">
         <button className="btn btn-ink" disabled={create.isPending}>

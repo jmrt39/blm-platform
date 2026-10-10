@@ -55,11 +55,11 @@ export const QUIZZES: Quiz[] = [
     ["A guest orders a vodka soda. You say…", ["“Coming right up.”", "“Would you like that with Ketel One or Grey Goose?”", "“Well vodka OK?”", "“Lime or lemon?”"], 1, "Call it up with a choice of two brands."],
     ["What is the single biggest lever on average check?", ["Dessert", "The wine with the entrée", "Sides", "Coffee"], 1, "The wine with the entrée."],
     ["What are the three moments that move the check?", ["Greeting, order, farewell", "First drink, wine with the entrée, the finish", "Bread, sides, coffee", "Appetiser, entrée, check"], 1, "First drink, wine with the entrée, the finish."],
-    ["The Bar & Grille's spend per guest target is…", ["$68", "$74", "$78", "$92"], 2, "$78 spend per guest at the Bar & Grille."],
+    ["The Bar & Grille's spend per ticket target is…", ["$150", "$178", "$190", "$220"], 2, "$190 spend per ticket at the Bar & Grille."],
     ["A guest declines dessert. You…", ["Describe the soufflé again", "Offer a half portion", "Thank them and move on — maybe offer a coffee or digestif once", "Bring a dessert menu anyway"], 2, "Never push. A finish can still be a coffee or digestif."],
     ["A guest orders the ribeye with no sides. The best line is…", ["“Any sides?”", "“The creamed spinach and the maitake are what most people pair with the ribeye.”", "“Sides are $14.”", "“That comes alone.”"], 1, "Recommend specifically, not as a yes/no."],
     ["“Have you saved room for the soufflé? I'll need to fire it now.” is said…", ["When dropping the check", "When taking the entrée order", "With the first drink", "After clearing mains"], 1, "The soufflé is fired with the entrées, so ask then."],
-    ["Where does each server's spend per guest appear?", ["On the line-up sheet only", "On their profile after each shift report", "Only at quarter end", "On the POS receipt"], 1, "Spend per guest shows on the profile after each shift report."],
+    ["Where does each server's spend per ticket appear?", ["On the line-up sheet only", "On their profile after each shift report", "Only at quarter end", "On the POS receipt"], 1, "Spend per ticket shows on the profile after each shift report."],
     ["What makes a recommendation credible?", ["Mentioning the price", "Saying it's popular", "Recommending what you'd order and saying why", "Saying the chef insists"], 2, "What you'd order yourself, and why."],
   ]),
   quiz("q-menu", "Menu & Allergens", "menu-allergens", "Core", [

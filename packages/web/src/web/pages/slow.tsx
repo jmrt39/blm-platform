@@ -138,7 +138,7 @@ function Forecast({ b, expected, setExpected }: { b: Board; expected: number | n
         <Stat label="Hours protected" value={`${b.protectedHours}h`} tone="good" sub="Sister stores, outreach, training · 4 weeks" />
         <Stat label="Hours sent home" value={`${b.cutHours}h`} tone="bad" sub="Volunteered or cut · 4 weeks" />
         <Stat
-          label="Spend per guest of who stays"
+          label="Spend per ticket of who stays"
           value={b.keepAvg != null ? money2(b.keepAvg) : "—"}
           tone="gold"
           sub={b.allAvg != null ? `The ${b.keepCount} who stay vs ${money2(b.allAvg)} for the whole floor` : "Needs shift reports"}
@@ -313,8 +313,8 @@ function PersonRow({ p, rank, suggested, b, shift }: { p: Person; rank: number; 
             this week
           </div>
           <div>
-            <div className="figure text-[15px] text-ink">{p.ppa != null ? money2(p.ppa) : "—"}</div>
-            per guest
+            <div className="figure text-[15px] text-ink">{p.spt != null ? money2(p.spt) : "—"}</div>
+            per ticket
           </div>
           <div>
             <div className="figure text-[15px] text-ink">{p.lost28}h</div>

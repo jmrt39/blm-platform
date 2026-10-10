@@ -89,9 +89,9 @@ function OwnerHome() {
   const gap = h.month.gap;
   const halfGap = h.month.totals.halfGapAnnual;
   const series = h.month.series;
-  const noNight = h.night.covers === 0;
-  const below = !noNight && h.night.ppa < h.night.ppaTarget;
-  const diff = Math.round((h.night.ppa - h.night.ppaTarget) * 100) / 100;
+  const noNight = h.night.checks === 0;
+  const below = !noNight && h.night.spt < h.night.ticketTarget;
+  const diff = Math.round((h.night.spt - h.night.ticketTarget) * 100) / 100;
   const period30 = `${shortDay(h.month.totals.nights ? (series[0]?.date ?? h.today) : h.today)} to ${shortDay(series[series.length - 1]?.date ?? h.today)}`;
   const tz = h.todayLists[0]?.timezone ?? "America/New_York";
   const ramping = h.month.stores.flatMap((s) => s.gap?.ramping ?? []);
@@ -153,24 +153,24 @@ function OwnerHome() {
           value={num(h.night.covers)}
           sub={
             <>
-              <Delta cur={h.night.covers} prev={priorCovers} /> · avg check {money2(h.night.avgCheck)}
+              <Delta cur={h.night.covers} prev={priorCovers} /> · {num(h.night.checks)} tickets
             </>
           }
         />
         <Stat
           label={
             <>
-              Spend per guest <HowCalculated metric="spendPerGuest" period={shortDay(h.lastNight)} />
+              Spend per ticket <HowCalculated metric="spendPerTicket" period={shortDay(h.lastNight)} />
             </>
           }
-          value={noNight ? "—" : money2(h.night.ppa)}
+          value={noNight ? "—" : money2(h.night.spt)}
           tone={noNight ? undefined : below ? "bad" : "good"}
           sub={
             noNight ? (
-              <>Target {money2(h.night.ppaTarget)} · no report yet</>
+              <>Target {money2(h.night.ticketTarget)} · no report yet</>
             ) : (
             <>
-              Target {money2(h.night.ppaTarget)} ·{" "}
+              Target {money2(h.night.ticketTarget)} ·{" "}
               <span className={below ? "text-oxblood" : "text-sage"}>
                 {diff >= 0 ? "+" : "−"}
                 {money2(Math.abs(diff))}
@@ -230,7 +230,7 @@ function OwnerHome() {
         {/* The gap */}
         <motion.div {...rise(3)}>
           <div className="eyebrow mb-3">
-            Server spend per guest · last 30 days <HowCalculated metric="serverSpend" period={period30} />
+            Server spend per ticket · last 30 days <HowCalculated metric="serverSpend" period={period30} />
           </div>
           {gap ? (
             <div className="relative overflow-hidden rounded-[2px] bg-noir p-6 text-ivory md:p-7">
@@ -238,23 +238,23 @@ function OwnerHome() {
               <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-4">
                 <div>
                   <div className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-gold">Top two servers</div>
-                  <div className="figure mt-1 text-[38px] leading-none text-ivory">{money2(gap.topPpa)}</div>
+                  <div className="figure mt-1 text-[38px] leading-none text-ivory">{money2(gap.topSpt)}</div>
                   <div className="mt-2 text-[12px] text-[#b9b0a3]">{gap.top.map((p) => p.name).join(" · ")}</div>
                 </div>
                 <div className="pb-3 font-display text-[22px] italic text-gold">vs</div>
                 <div className="text-right">
                   <div className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-gold">Priority coaching opportunities</div>
-                  <div className="figure mt-1 text-[38px] leading-none text-ivory">{money2(gap.bottomPpa)}</div>
+                  <div className="figure mt-1 text-[38px] leading-none text-ivory">{money2(gap.bottomSpt)}</div>
                   <div className="mt-2 text-[12px] text-[#b9b0a3]">{gap.bottom.map((p) => p.name).join(" · ")}</div>
                 </div>
               </div>
               <div className="mt-6 border-t border-noir-line pt-5">
                 <div className="flex flex-wrap items-baseline justify-between gap-3">
                   <div>
-                    <div className="text-[12px] text-[#b9b0a3]">Gap per guest</div>
+                    <div className="text-[12px] text-[#b9b0a3]">Gap per ticket</div>
                     <div className="figure text-[30px] text-gold">{money2(gap.gap)}</div>
                     <div className="text-[11px] text-[#8f877b]">
-                      {money2(gap.topPpa)} − {money2(gap.bottomPpa)}
+                      {money2(gap.topSpt)} − {money2(gap.bottomSpt)}
                     </div>
                   </div>
                   <div className="text-right">
@@ -291,7 +291,7 @@ function OwnerHome() {
                       <span className="font-semibold">{p.name}</span> <span className="text-ink-soft">· {p.storeName}</span>
                     </span>
                     <span className="text-[12.5px] text-ink-soft">
-                      Day {p.tenureDays} · {money2(p.ppa)} / guest · {p.shifts} shifts
+                      Day {p.tenureDays} · {money2(p.spt)} / ticket · {p.shifts} shifts
                     </span>
                   </Link>
                 ))}
@@ -302,10 +302,10 @@ function OwnerHome() {
           {series.length > 1 && (
             <div className="mt-8">
               <div className="mb-2 flex items-baseline justify-between">
-                <div className="eyebrow">Spend per guest by night</div>
-                <div className="text-[11.5px] text-ink-soft">dashed = target {money2(h.month.totals.ppaTarget)}</div>
+                <div className="eyebrow">Spend per ticket by night</div>
+                <div className="text-[11.5px] text-ink-soft">dashed = target {money2(h.month.totals.ticketTarget)}</div>
               </div>
-              <Spark data={series.map((s) => s.ppa)} target={h.month.totals.ppaTarget} height={80} />
+              <Spark data={series.map((s) => s.spt)} target={h.month.totals.ticketTarget} height={80} />
               <div className="mt-1 flex justify-between text-[11px] text-ink-soft">
                 <span>{shortDay(series[0]!.date)}</span>
                 <span>{shortDay(series[series.length - 1]!.date)}</span>
@@ -360,7 +360,7 @@ function OwnerHome() {
           <div className="space-y-3 md:hidden">
             {h.nightStores.map((s) => {
               const m = h.month.stores.find((x) => x.id === s.id);
-              const bad = s.nights > 0 && s.ppa < s.ppaTarget;
+              const bad = s.nights > 0 && s.spt < s.ticketTarget;
               return (
                 <div key={s.id} className="rounded-[2px] border rule p-4">
                   <div className="flex items-baseline justify-between">
@@ -370,7 +370,7 @@ function OwnerHome() {
                   <div className="mt-2 text-[13px]">
                     {s.nights ? (
                       <>
-                        <span className="figure text-[18px]">{money(s.sales)}</span> · {num(s.covers)} covers
+                        <span className="figure text-[18px]">{money(s.sales)}</span> · {num(s.checks)} tickets
                       </>
                     ) : (
                       <span className="text-oxblood">No report last night</span>
@@ -378,12 +378,12 @@ function OwnerHome() {
                   </div>
                   <dl className="mt-3 grid grid-cols-3 gap-2 text-[12px]">
                     <div>
-                      <dt className="text-ink-soft">Spend / guest</dt>
-                      <dd className={cn("font-semibold", bad ? "text-oxblood" : "text-sage")}>{s.nights ? money2(s.ppa) : "—"}</dd>
+                      <dt className="text-ink-soft">Spend / ticket</dt>
+                      <dd className={cn("font-semibold", bad ? "text-oxblood" : "text-sage")}>{s.nights ? money2(s.spt) : "—"}</dd>
                     </div>
                     <div>
                       <dt className="text-ink-soft">30 day baseline</dt>
-                      <dd className="font-semibold">{m ? money2(m.ppa) : "—"}</dd>
+                      <dd className="font-semibold">{m ? money2(m.spt) : "—"}</dd>
                     </div>
                     <div>
                       <dt className="text-ink-soft">On time</dt>
@@ -410,12 +410,11 @@ function OwnerHome() {
                   <tr>
                     <th className="sticky left-0 z-10 bg-paper">Store</th>
                     <th className="r">Net sales</th>
-                    <th className="r">Covers</th>
-                    <th className="r">Spend / guest</th>
+                    <th className="r">Tickets</th>
+                    <th className="r">Spend / ticket</th>
                     <th className="r">Target</th>
                     <th className="r">30 day baseline</th>
-                    <th className="r">Avg check</th>
-                    <th className="r">Gap / guest</th>
+                    <th className="r">Gap / ticket</th>
                     <th className="r">On time completion</th>
                   </tr>
                 </thead>
@@ -431,11 +430,10 @@ function OwnerHome() {
                           <div className="text-[11px] text-ink-soft">Store {s.number}</div>
                         </td>
                         <td className="r figure text-[16px]">{s.nights ? money(s.sales) : "—"}</td>
-                        <td className="r">{s.nights ? num(s.covers) : "—"}</td>
-                        <td className={cn("r font-semibold", s.ppa >= s.ppaTarget ? "text-sage" : "text-oxblood")}>{s.nights ? money2(s.ppa) : "—"}</td>
-                        <td className="r text-ink-soft">{money2(s.ppaTarget)}</td>
-                        <td className="r">{m ? money2(m.ppa) : "—"}</td>
-                        <td className="r">{s.nights ? money2(s.avgCheck) : "—"}</td>
+                        <td className="r">{s.nights ? num(s.checks) : "—"}</td>
+                        <td className={cn("r font-semibold", s.spt >= s.ticketTarget ? "text-sage" : "text-oxblood")}>{s.nights ? money2(s.spt) : "—"}</td>
+                        <td className="r text-ink-soft">{money2(s.ticketTarget)}</td>
+                        <td className="r">{m ? money2(m.spt) : "—"}</td>
                         <td className="r">{m?.gap ? money2(m.gap.gap) : "—"}</td>
                         <td className="r">
                           {pct(m?.compliance.rate)} <span className="text-[11px] text-ink-soft">({m?.compliance.onTime ?? 0}/{m?.compliance.expected ?? 0})</span>
@@ -497,11 +495,11 @@ function Assumptions({ gap, combined, stores, halfGap }: { gap: Gap; combined: b
       </div>
       <div>
         <span className="font-semibold text-ivory">Top two:</span>{" "}
-        {gap.top.map((p) => `${p.name} (${p.storeName}, ${p.covers} covers, ${p.shifts} shifts, ${p.tenureDays}d)`).join("; ")}
+        {gap.top.map((p) => `${p.name} (${p.storeName}, ${p.checks} tickets, ${p.shifts} shifts, ${p.tenureDays}d)`).join("; ")}
       </div>
       <div>
         <span className="font-semibold text-ivory">Priority coaching:</span>{" "}
-        {gap.bottom.map((p) => `${p.name} (${p.storeName}, ${p.covers} covers, ${p.shifts} shifts, ${p.tenureDays}d)`).join("; ")}
+        {gap.bottom.map((p) => `${p.name} (${p.storeName}, ${p.checks} tickets, ${p.shifts} shifts, ${p.tenureDays}d)`).join("; ")}
       </div>
       {gap.ramping.length > 0 && (
         <div>
@@ -509,7 +507,7 @@ function Assumptions({ gap, combined, stores, halfGap }: { gap: Gap; combined: b
         </div>
       )}
       <div>
-        <span className="font-semibold text-ivory">Recoverable:</span> half the gap ({money2(gap.gap / 2)} per guest) × {num(a.bottomCovers)} priority covers × {a.annualise} ={" "}
+        <span className="font-semibold text-ivory">Recoverable:</span> half the gap ({money2(gap.gap / 2)} per ticket) × {num(a.bottomTickets)} priority tickets × {a.annualise} ={" "}
         <span className="text-gold">{money(gap.annualHalfGap)}</span>
       </div>
       {combined && per.length > 1 && (

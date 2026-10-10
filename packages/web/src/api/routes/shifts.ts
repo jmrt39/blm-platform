@@ -29,7 +29,7 @@ export const shifts = {
         .where(eq(s.shiftReports.storeId, input.storeId))
         .orderBy(desc(s.shiftReports.businessDate))
         .limit(input.limit);
-      return rows.map(({ signature: _s, ...r }) => ({ ...r, ppa: r.covers ? r.netSales / r.covers : 0 }));
+      return rows.map(({ signature: _s, ...r }) => ({ ...r, spt: r.checks ? r.netSales / r.checks : 0 }));
     }),
 
   get: managerBase
@@ -40,12 +40,12 @@ export const shifts = {
         .select()
         .from(s.shiftReports)
         .where(and(eq(s.shiftReports.storeId, store.id), eq(s.shiftReports.businessDate, input.date)));
-      if (!r) return { store: { id: store.id, name: store.name, number: store.number, ppaTarget: store.ppaTarget }, report: null };
+      if (!r) return { store: { id: store.id, name: store.name, number: store.number, ticketTarget: store.ticketTarget }, report: null };
       const lines = await db.select().from(s.shiftReportLines).where(eq(s.shiftReportLines.reportId, r.id));
       lines.sort((a, b) => b.netSales - a.netSales);
       return {
-        store: { id: store.id, name: store.name, number: store.number, ppaTarget: store.ppaTarget },
-        report: { ...r, ppa: r.covers ? r.netSales / r.covers : 0, lines },
+        store: { id: store.id, name: store.name, number: store.number, ticketTarget: store.ticketTarget },
+        report: { ...r, spt: r.checks ? r.netSales / r.checks : 0, lines },
       };
     }),
 
@@ -120,7 +120,7 @@ export const shifts = {
           desserts: l.desserts,
         })),
       );
-      return { id, replaced: !!prev, netSales, covers, ppa: covers ? netSales / covers : 0 };
+      return { id, replaced: !!prev, netSales, covers, checks, spt: checks ? netSales / checks : 0 };
     }),
 
   roster: viewerBase.input(z.object({ storeId: z.string() })).handler(async ({ input, context }) => {

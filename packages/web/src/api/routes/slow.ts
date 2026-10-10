@@ -42,10 +42,10 @@ export const slow = {
       const forecast = past.length ? Math.round(past.reduce((a, r) => a + r.covers, 0) / past.length) : null;
       const expected = input.expectedCovers ?? forecast ?? 0;
 
-      // Hours this week and spend per guest over 28 days, from shift reports.
+      // Hours this week and spend per ticket over 28 days, from shift reports.
       const lines = ids.length
         ? await db
-            .select({ memberId: s.shiftReportLines.memberId, d: s.shiftReports.businessDate, sales: s.shiftReportLines.netSales, covers: s.shiftReportLines.covers })
+            .select({ memberId: s.shiftReportLines.memberId, d: s.shiftReports.businessDate, sales: s.shiftReportLines.netSales, checks: s.shiftReportLines.checks })
             .from(s.shiftReportLines)
             .innerJoin(s.shiftReports, eq(s.shiftReports.id, s.shiftReportLines.reportId))
             .where(and(eq(s.shiftReports.storeId, store.id), gte(s.shiftReports.businessDate, from28)))
@@ -72,7 +72,7 @@ export const slow = {
         const mine = lines.filter((l) => l.memberId === m.id);
         const weekShifts = new Set(mine.filter((l) => l.d >= wk && l.d < today).map((l) => l.d)).size;
         const sales = mine.reduce((a, l) => a + l.sales, 0);
-        const covers = mine.reduce((a, l) => a + l.covers, 0);
+        const checks = mine.reduce((a, l) => a + l.checks, 0);
         const g = goals.find((x) => x.memberId === m.id);
         const goal = g?.weeklyHours ?? 32;
         const acts = actions.filter((a) => a.memberId === m.id);
@@ -96,7 +96,7 @@ export const slow = {
           surplus: weekHours + SHIFT_HOURS - goal,
           volunteerEarly: !!g?.volunteerEarly,
           crossStore: !!g?.crossStore,
-          ppa: covers ? round2(sales / covers) : null,
+          spt: checks ? round2(sales / checks) : null,
           lost28: lost,
           kept28: kept,
           decided: decided ? { id: decided.id, action: decided.action, hours: decided.hours, toStoreName: decided.toStoreName, detail: decided.detail } : null,
@@ -108,20 +108,20 @@ export const slow = {
       const bar = people.filter((p) => p.on && p.role === "bartender");
       const needServers = Math.max(1, Math.ceil(expected / COVERS_PER_SERVER));
       const needBar = Math.max(1, Math.ceil((expected * 0.14) / COVERS_PER_BARTENDER));
-      // Spend per guest of everyone on the floor tonight, for the profit side of the decision.
+      // Spend per ticket of everyone on the floor tonight, for the profit side of the decision.
       const avgOf = (list: typeof people) => {
-        const k = list.filter((p) => p.ppa != null);
-        return k.length ? round2(k.reduce((a, p) => a + p.ppa!, 0) / k.length) : null;
+        const k = list.filter((p) => p.spt != null);
+        return k.length ? round2(k.reduce((a, p) => a + p.spt!, 0) / k.length) : null;
       };
       const order = (list: typeof people) => {
         const avg = avgOf(list);
-        const below = (p: (typeof people)[number]) => (avg != null && p.ppa != null ? p.ppa < avg : p.ppa == null);
+        const below = (p: (typeof people)[number]) => (avg != null && p.spt != null ? p.spt < avg : p.spt == null);
         return [...list]
           .map((p) => {
             const reasons: string[] = [];
             if (p.volunteerEarly) reasons.push("volunteered to go early");
             if (p.tenureDays < 30) reasons.push("ramping: needs floor time");
-            else if (avg != null && p.ppa != null) reasons.push(p.ppa < avg ? "below tonight's floor average per guest" : "above tonight's floor average per guest");
+            else if (avg != null && p.spt != null) reasons.push(p.spt < avg ? "below tonight's floor average per ticket" : "above tonight's floor average per ticket");
             if (p.surplus > 0) reasons.push(`${p.surplus}h over their ${p.goal}h goal if they stay`);
             else reasons.push(`${-p.surplus}h short of their ${p.goal}h goal`);
             if (p.lost28 > 0) reasons.push(`lost ${p.lost28}h to cuts in the last 4 weeks`);
@@ -139,7 +139,7 @@ export const slow = {
               // 4. Fairness within the band: most hours over goal, then fewest hours already lost.
               b.surplus - a.surplus ||
               a.lost28 - b.lost28 ||
-              (a.ppa ?? 0) - (b.ppa ?? 0),
+              (a.spt ?? 0) - (b.spt ?? 0),
           );
       };
       const floorOrder = order(floor);
@@ -173,13 +173,13 @@ export const slow = {
       const protectedHours = actions.filter((a) => SLOW_ACTIONS[a.action].keepsPay).reduce((t, a) => t + a.hours, 0);
       const cutHours = actions.filter((a) => !SLOW_ACTIONS[a.action].keepsPay).reduce((t, a) => t + a.hours, 0);
 
-      // What the suggested plan is worth: spend per guest of who stays vs. the whole floor.
+      // What the suggested plan is worth: spend per ticket of who stays vs. the whole floor.
       const staying = floorOrder.filter((p) => !p.decided).slice(extraServers);
       const keepAvg = avgOf(staying);
       const allAvg = avgOf(floor);
 
       return {
-        store: { id: store.id, name: store.name, ppaTarget: store.ppaTarget },
+        store: { id: store.id, name: store.name, ticketTarget: store.ticketTarget },
         today,
         shift: input.shift,
         lineupStarted: !!lineup,

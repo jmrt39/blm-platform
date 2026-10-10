@@ -1,3 +1,4 @@
+import { DEFAULT_TICKET_TARGET } from "../../shared/metrics";
 import { z } from "zod";
 import { ORPCError } from "@orpc/server";
 import { and, eq, inArray } from "drizzle-orm";
@@ -28,7 +29,7 @@ export const stores = {
         name: r.name,
         city: r.city,
         pin: v.level === "owner" || v.level === "area" ? r.pin : null,
-        ppaTarget: r.ppaTarget,
+        ticketTarget: r.ticketTarget,
         openingDueBy: r.openingDueBy,
         closingDueBy: r.closingDueBy,
         headcount: members.filter((m) => m.storeId === r.id).length,
@@ -43,7 +44,7 @@ export const stores = {
         name: z.string().min(2).max(80),
         city: z.string().max(80).default(""),
         pin: z.string().regex(/^\d{4,6}$/, "Store PIN must be 4–6 digits"),
-        ppaTarget: z.number().min(10).max(500).default(78),
+        ticketTarget: z.number().min(10).max(2000).default(DEFAULT_TICKET_TARGET),
       }),
     )
     .handler(async ({ input, context }) => {
@@ -64,7 +65,7 @@ export const stores = {
           .string()
           .regex(/^\d{4,6}$/)
           .optional(),
-        ppaTarget: z.number().min(10).max(500).optional(),
+        ticketTarget: z.number().min(10).max(2000).optional(),
         openingDueBy: z
           .string()
           .regex(/^\d{2}:\d{2}$/)

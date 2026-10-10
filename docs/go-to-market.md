@@ -1,6 +1,6 @@
 # The Platform: taking it to market
 
-Written for Jacquie and Justin. It covers where the code should live, how Justin keeps control of fixes without it becoming a second full-time job, which AI tools to use, and how a new restaurant gets onto the platform.
+Written for you and Justin. It covers where the code should live, how Justin keeps control of fixes without it becoming a second full-time job, which AI tools to use, and how a new restaurant gets onto the platform.
 
 ---
 
@@ -10,7 +10,7 @@ Written for Jacquie and Justin. It covers where the code should live, how Justin
 
 | Piece | What it is today | What to do |
 |---|---|---|
-| Code | Bun + Vite + React 19 front end, Hono + oRPC API, Drizzle ORM, about 18,000 lines of TypeScript in `packages/web` | Push to a private repo, e.g. `jmrt39/blm-platform`. Justin is the owner; Jacquie is an admin. |
+| Code | Bun + Vite + React 19 front end, Hono + oRPC API, Drizzle ORM, about 18,000 lines of TypeScript in `packages/web` | Push to a private repo, e.g. `jmrt39/blm-platform`. Justin is the owner; you are an admin. |
 | Database | Turso (hosted SQLite), connected through `DATABASE_URL` + `DATABASE_AUTH_TOKEN` | One database for **production**, one for **staging**, and one for each developer locally. Never point a laptop at production. |
 | File storage | S3-compatible bucket for log book photos and signatures (`S3_*` variables) | Separate bucket or prefix per environment. |
 | Sign-in | Better Auth with email + password, wrapped by Runable's managed auth plugin | Fine while hosted on Runable. If you ever leave Runable, remove the `runableManagedAuth` plugin in `src/api/auth.ts`; the email + password sign-in keeps working on its own. |
@@ -33,7 +33,7 @@ Written for Jacquie and Justin. It covers where the code should live, how Justin
 
 ## 2. How Justin keeps control (without it eating his evenings)
 
-Justin has a full-time job, so the aim is: **Jacquie can make small changes safely, and Justin reviews anything that touches data, money or sign-in.**
+Justin has a full-time job, so the aim is: **you can make small changes safely, and Justin reviews anything that touches data, money or sign-in.**
 
 ### The rules
 
@@ -44,13 +44,13 @@ Justin has a full-time job, so the aim is: **Jacquie can make small changes safe
   ```
   /packages/web/src/api/   @justin-github-handle
   ```
-  Copy and layout changes in `src/web/` can be approved by Jacquie.
+  Copy and layout changes in `src/web/` can be approved by you.
 
 ### The weekly loop
 
 | Who | What | Tool |
 |---|---|---|
-| Jacquie | Copy, labels, a new checklist line, a colour, "this button is confusing" | Runable chat on a **staging copy** of the project, or describe it in a GitHub issue |
+| You | Copy, labels, a new checklist line, a colour, "this button is confusing" | Runable chat on a **staging copy** of the project, or describe it in a GitHub issue |
 | Justin | Bugs, data changes, new features | Clone the repo, branch, Claude Code or Cursor, open a PR |
 | CI (automatic) | Lint, typecheck, build on every PR | GitHub Actions (below) |
 | Sentry (automatic) | Emails Justin when something breaks in production, with the exact line | Sentry free tier |
@@ -98,7 +98,7 @@ The database schema is in `packages/web/src/api/database/schema.ts`. Today it is
 |---|---|---|
 | **Claude Code** (Anthropic, in the terminal) | Justin's main tool. It reads the whole repo, runs the typecheck and lint, and makes multi-file changes. Best for "the slow night page double counts hours when you undo" type bugs. | Included with Claude Pro/Max, about $20 to $100 a month |
 | **Cursor** | The editor, if Justin prefers to watch changes inline. Pick a Claude model inside it. | About $20 a month |
-| **Runable** | Jacquie's tool for quick visual and copy changes, and for prototyping a feature before Justin hardens it. Work on a staging copy, then have Justin pull the change into a PR. | Current plan |
+| **Runable** | Your tool for quick visual and copy changes, and for prototyping a feature before Justin hardens it. Work on a staging copy, then have Justin pull the change into a PR. | Current plan |
 | **GitHub Copilot code review** (optional) | A second set of eyes on PRs | About $10 a month |
 
 **How to prompt them well on this codebase.** Point the tool at `design.md` and `task.md` first, and tell it the house rules:

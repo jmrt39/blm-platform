@@ -45,7 +45,8 @@ export const stores = sqliteTable(
     city: text("city").notNull().default(""),
     pin: text("pin").notNull(),
     timezone: text("timezone").notNull().default("America/New_York"),
-    ppaTarget: real("ppa_target").notNull().default(78),
+    /** Spend per ticket target (net sales ÷ tickets). Column name kept from v1; always written explicitly. */
+    ticketTarget: real("ppa_target").notNull().default(150),
     openingDueBy: text("opening_due_by").notNull().default("11:00"),
     closingDueBy: text("closing_due_by").notNull().default("01:00"),
     createdAt: createdAt(),

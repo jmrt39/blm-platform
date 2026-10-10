@@ -40,7 +40,7 @@ export const team = {
           )
       : [];
     const today = businessDate("America/New_York");
-    // 30-day spend per guest for sellers
+    // 30-day spend per ticket for sellers
     const since = addDays(today, -30);
     const reports = await db
       .select({ id: s.shiftReports.id })
@@ -57,12 +57,12 @@ export const team = {
             ),
           )
       : [];
-    const perf = new Map<string, { sales: number; covers: number; shifts: number }>();
+    const perf = new Map<string, { sales: number; checks: number; shifts: number }>();
     for (const l of lines) {
       if (!l.memberId) continue;
-      const p = perf.get(l.memberId) ?? { sales: 0, covers: 0, shifts: 0 };
+      const p = perf.get(l.memberId) ?? { sales: 0, checks: 0, shifts: 0 };
       p.sales += l.netSales;
-      p.covers += l.covers;
+      p.checks += l.checks;
       p.shifts += 1;
       perf.set(l.memberId, p);
     }
@@ -83,7 +83,7 @@ export const team = {
           email: canSeePins ? m.email : null,
           pin: canSeePins ? m.pin : null,
           onboarding: items.length ? summarize(items, today) : null,
-          ppa30: p && p.covers ? p.sales / p.covers : null,
+          spt30: p && p.checks ? p.sales / p.checks : null,
           shifts30: p?.shifts ?? 0,
         };
       })
@@ -110,6 +110,7 @@ export const team = {
         date: s.shiftReports.businessDate,
         netSales: s.shiftReportLines.netSales,
         covers: s.shiftReportLines.covers,
+        checks: s.shiftReportLines.checks,
         wineBottles: s.shiftReportLines.wineBottles,
         desserts: s.shiftReportLines.desserts,
       })
@@ -130,7 +131,7 @@ export const team = {
         email: priv ? m.email : null,
         phone: priv ? m.phone : null,
       },
-      store: { id: store!.id, name: store!.name, number: store!.number, ppaTarget: store!.ppaTarget },
+      store: { id: store!.id, name: store!.name, number: store!.number, ticketTarget: store!.ticketTarget },
       tenureDays: daysBetween(m.hireDate, today),
       today,
       onboarding: items,

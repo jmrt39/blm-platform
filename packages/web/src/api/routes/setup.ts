@@ -7,6 +7,7 @@ import { assertStore, managerBase, uniqueMemberPin } from "../lib/access";
 import { onboardingRows } from "../lib/core";
 import { businessDate, daysBetween } from "../lib/time";
 import { TZ } from "../lib/program-access";
+import { DEFAULT_TICKET_TARGET } from "../../shared/metrics";
 import { initialsOf, isManagementRole, ROLE_LABEL, STORE_ROLES, type StoreRole } from "../../shared/domain";
 
 /** Accepts "server", "Server", "Food Runner", "food runner", "GM"… */
@@ -43,7 +44,7 @@ export const setup = {
     ]);
     const staff = members.filter((m) => !isManagementRole(m.role));
     const steps = [
-      { key: "stores", label: "Add every store, with its PIN and spend per guest target", href: "/stores", done: stores.length > 1 || stores.some((x) => x.ppaTarget !== 78) },
+      { key: "stores", label: "Add every store, with its PIN and spend per ticket target", href: "/stores", done: stores.length > 1 || stores.some((x) => x.ticketTarget !== DEFAULT_TICKET_TARGET) },
       { key: "managers", label: "Add your GM and managers", href: "/team/new", done: members.some((m) => isManagementRole(m.role)) },
       { key: "roster", label: "Import the front of house roster (CSV from your scheduler)", href: "/team/import", done: staff.length >= 5 },
       { key: "trainers", label: "Mark your trainers so they can sign off modules", href: "/team", done: members.some((m) => m.isTrainer) },

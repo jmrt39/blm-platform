@@ -23,7 +23,7 @@ export const SLOW_PRINCIPLES = [
   },
   {
     h: "Keep the people who make money on",
-    p: "When people have to go, the ones selling below tonight's floor average per guest go before the ones above it. On a slow night every table matters more, so put it in the best hands. New hires under 30 days stay on: they need the reps.",
+    p: "When people have to go, the ones selling below tonight's floor average per ticket go before the ones above it. On a slow night every table matters more, so put it in the best hands. New hires under 30 days stay on: they need the reps.",
   },
   {
     h: "Redeploy before you cut",

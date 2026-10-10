@@ -40,7 +40,7 @@ export const session = {
             number: s.stores.number,
             name: s.stores.name,
             city: s.stores.city,
-            ppaTarget: s.stores.ppaTarget,
+            ticketTarget: s.stores.ticketTarget,
             timezone: s.stores.timezone,
           })
           .from(s.stores)
@@ -75,7 +75,7 @@ export const session = {
         storeName: z.string().min(2).max(80),
         city: z.string().max(80).default(""),
         storePin: z.string().regex(/^\d{4,6}$/, "Store PIN must be 4 to 6 digits"),
-        ppaTarget: z.number().min(10).max(500).optional(),
+        ticketTarget: z.number({ message: "Enter a spend per ticket target" }).min(10, "Spend per ticket target looks too low").max(2000),
       }),
     )
     .handler(async ({ input, context }) => {
@@ -99,7 +99,7 @@ export const session = {
         name: input.storeName,
         city: input.city,
         pin: input.storePin,
-        ...(input.ppaTarget ? { ppaTarget: input.ppaTarget } : {}),
+        ticketTarget: input.ticketTarget,
       });
       await seedTemplates(storeId);
       return { orgId, storeNumber: number };

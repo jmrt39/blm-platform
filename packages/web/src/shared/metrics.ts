@@ -1,6 +1,13 @@
 // One vocabulary for every number on the platform. Web, mobile and reports all read from here.
 
-export type MetricKey = "netSales" | "spendPerGuest" | "avgCheck" | "serverSpend" | "onTime" | "covers" | "opportunity";
+export type MetricKey = "netSales" | "spendPerTicket" | "tickets" | "serverSpend" | "onTime" | "covers" | "opportunity" | "lastYear";
+
+/** Bartender tickets are smaller (often one or two drinks), so a bartender's target is this share of the store target. */
+export const BAR_TARGET_SHARE = 0.4;
+/** Used when a store is created without a target. Owners should set their own from last year's numbers. */
+export const DEFAULT_TICKET_TARGET = 150;
+export const barTarget = (target: number) => Math.round(target * BAR_TARGET_SHARE);
+export const targetForRole = (role: string, target: number) => (role === "bartender" ? barTarget(target) : target);
 
 export type MetricDef = {
   label: string;
@@ -29,26 +36,26 @@ export const METRICS: Record<MetricKey, MetricDef> = {
     source: "POS end of day (shift report)",
     exclusions: "Bar seats without a guest count, staff meals, voided checks",
   },
-  spendPerGuest: {
-    label: "Spend per guest",
-    what: "How much each guest spends. Replaces ADS, PPA and average dollar sale on every screen.",
-    formula: "Net sales ÷ covers",
-    source: "Shift report totals",
-    exclusions: "Same as net sales. Nights without a shift report are left out, not counted as zero",
+  tickets: {
+    label: "Tickets",
+    what: "Closed checks printed by the POS. One table, one ticket, unless it was split.",
+    formula: "Count of closed checks",
+    source: "POS end of day (shift report)",
+    exclusions: "Voided checks. A split check counts once per printed ticket",
   },
-  avgCheck: {
-    label: "Average check",
-    what: "How much each table's bill comes to.",
-    formula: "Net sales ÷ checks",
-    source: "Shift report: check count from the POS",
-    exclusions: "Voided checks, split checks count once per printed check",
+  spendPerTicket: {
+    label: "Spend per ticket",
+    what: "How much each ticket comes to. Replaces ADS, PPA, average check and spend per guest on every screen.",
+    formula: "Net sales ÷ tickets",
+    source: "Shift report totals: net sales and ticket count from the POS",
+    exclusions: "Same as net sales. Voided tickets are left out. Nights without a shift report are left out, not counted as zero",
   },
   serverSpend: {
-    label: "Server spend per guest",
-    what: "Spend per guest for one person's section.",
-    formula: "That server's net sales ÷ that server's covers",
+    label: "Server spend per ticket",
+    what: "Spend per ticket for one person's section.",
+    formula: "That server's net sales ÷ that server's tickets",
     source: "Server lines on each shift report (POS server sales report)",
-    exclusions: "Bartenders are ranked separately. Servers inside their first 30 days are shown as ramping, never ranked",
+    exclusions: "Bartenders are ranked separately against 40% of the store target. Servers inside their first 30 days are shown as ramping, never ranked",
   },
   onTime: {
     label: "On time checklist completion",
@@ -60,8 +67,15 @@ export const METRICS: Record<MetricKey, MetricDef> = {
   opportunity: {
     label: "Modeled annual sales opportunity",
     what: "A model of what's possible, not verified loss or guaranteed improvement.",
-    formula: "(Top two spend per guest − priority two spend per guest) ÷ 2 × priority two covers × (365 ÷ days in period)",
+    formula: "(Top two spend per ticket − priority two spend per ticket) ÷ 2 × priority two tickets × (365 ÷ days in period)",
     source: "Server lines on shift reports for the period",
     exclusions: "Ramping servers (under 30 days), servers with fewer than 3 shifts, bartenders. Sales, not profit or contribution",
+  },
+  lastYear: {
+    label: "On this day last year",
+    what: "The same weekday, 52 weeks earlier, from the year of sales history the restaurant handed over before launch.",
+    formula: "This period ÷ the same period 364 days earlier − 1",
+    source: "Last year: the history import. This year: nightly shift reports",
+    exclusions: "Days missing from either year are left out of both, so the comparison is like for like",
   },
 };

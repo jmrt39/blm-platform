@@ -28,12 +28,12 @@ export const REWARDS: Reward[] = [
     title: "Paid day off",
     value: "One paid day",
     cadence: "Quarterly",
-    rule: "Spend per guest at or above the store target for the whole quarter.",
+    rule: "Spend per ticket at or above the store target for the whole quarter.",
   },
   {
     key: "guest_quote",
     n: 2,
-    title: "Guest-quote recognition",
+    title: "Guest quote recognition",
     value: "Read aloud at pre-shift",
     cadence: "Each shift",
     rule: "Named by a guest in a review or comment card. The quote is pinned to the line-up.",
@@ -41,10 +41,10 @@ export const REWARDS: Reward[] = [
   {
     key: "ads_bonus",
     n: 3,
-    title: "Monthly spend per guest bonus",
+    title: "Monthly spend per ticket bonus",
     value: "$150–$250",
     cadence: "Monthly",
-    rule: "$150 at target, $200 at target + $5, $250 at target + $10 spend per guest for the month.",
+    rule: "$150 at target, $200 at target + $12, $250 at target + $25 spend per ticket for the month. Bartenders: + $5 and + $10 on their own target.",
   },
   {
     key: "first_pick",
@@ -52,7 +52,7 @@ export const REWARDS: Reward[] = [
     title: "First pick of sections & shifts",
     value: "First choice next month",
     cadence: "Monthly",
-    rule: "Highest spend per guest in the store last month.",
+    rule: "Highest spend per ticket in the store last month.",
   },
   {
     key: "chefs_table",

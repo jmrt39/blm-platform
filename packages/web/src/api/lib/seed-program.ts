@@ -4,13 +4,17 @@ import { db } from "../database";
 import { insertChunked } from "./core";
 import { addDays, zoned } from "./time";
 import { isManagementRole } from "../../shared/domain";
-import { PASS_MARK, monthOf, requiredCerts, seasonOf, type Question } from "../../shared/program";
+import { targetForRole } from "../../shared/metrics";
+import { PASS_MARK, adsBonus, monthOf, requiredCerts, seasonOf, type Question } from "../../shared/program";
 import { modulesFor } from "../../shared/library/modules";
 import { QUIZ_BY_SLUG, scoreQuiz } from "../../shared/library/quizzes";
 import { RUBRIC_BY_SLUG, gradeAverage } from "../../shared/library/rubrics";
 
 type Member = { id: string; name: string; role: string; hireDate: string; tenure: number; ppa?: number; isTrainer: boolean };
-type Store = { id: string; name: string; si: number; ppaTarget: number; roster: Member[] };
+
+/** Seed baselines are per cover; a server ticket carries about 2.6 covers, a bar ticket about 1.6. */
+const sptOf = (m: Member) => (m.ppa == null ? null : m.ppa * (m.role === "bartender" ? 1.6 : 2.6));
+type Store = { id: string; name: string; si: number; ticketTarget: number; roster: Member[] };
 
 const SELL = ["server", "bartender", "sommelier"];
 
@@ -63,7 +67,8 @@ export async function seedProgram(opts: {
       const mods = modulesFor(m.role);
       const seller = SELL.includes(m.role);
       // Skill: veterans and strong sellers score higher.
-      const rel = m.ppa ? (m.ppa - (m.role === "bartender" ? st.ppaTarget * 0.66 : st.ppaTarget)) / 10 : 0;
+      const spt = sptOf(m);
+      const rel = spt != null ? (spt - targetForRole(m.role, st.ticketTarget)) / 25 : 0;
       const skill = Math.max(0.55, Math.min(0.97, 0.78 + rel * 0.08 + Math.min(m.tenure, 720) / 720 * 0.12));
       // How far through the library they are.
       const reach = m.tenure < 15 ? 2 : m.tenure < 30 ? 5 : m.tenure < 60 ? 8 : m.tenure < 120 ? mods.length - 2 : mods.length;
@@ -319,11 +324,10 @@ export async function seedProgram(opts: {
 
     // ── Rewards already handed out ───────────────────────────────────────
     const last = monthOf(addDays(monthOf(today).start, -1));
-    const sellers = staff.filter((m) => m.ppa != null && m.tenure > 30).sort((a, b) => b.ppa! - a.ppa!);
-    const t = st.ppaTarget;
+    const sellers = staff.filter((m) => m.ppa != null && m.tenure > 30).sort((a, b) => sptOf(b)! - sptOf(a)!);
+    const t = st.ticketTarget;
     for (const m of sellers) {
-      const tt = m.role === "bartender" ? Math.round(t * 0.66) : t;
-      const amount = m.ppa! >= tt + 10 ? 250 : m.ppa! >= tt + 5 ? 200 : m.ppa! >= tt ? 150 : 0;
+      const amount = adsBonus(sptOf(m)!, targetForRole(m.role, t), m.role);
       if (amount)
         awards.push({ ...base, memberId: m.id, memberName: m.name, reward: "ads_bonus", period: last.key, amount, note: "", awardedByName: gm.name, awardedAt: at(6, "11:00") });
     }
@@ -486,7 +490,7 @@ export async function seedProgram(opts: {
       10,
       "wine",
       "Six new bottles by the glass",
-      "Lead with these. Each one is priced to beat the house pour by $3 to $5 a glass, which is where spend per guest moves.",
+      "Lead with these. Each one is priced to beat the house pour by $3 to $5 a glass, which is where spend per ticket moves.",
       [
         { name: "Domaine Vacheron Sancerre 2023", detail: "$19 / glass. Flinty, citrus. Oysters, crudo, goat cheese." },
         { name: "Bodegas Muga Reserva Rioja 2019", detail: "$17 / glass. Cherry, vanilla, leather. Lamb, short rib." },
@@ -496,7 +500,7 @@ export async function seedProgram(opts: {
       [
         { q: "Which by the glass wine do you offer an anniversary table first?", choices: ["Rioja Reserva", "Sancerre", "Billecart Salmon", "Côtes du Rhône"], answer: 2, why: "Champagne for every celebration note on the reservation." },
         { q: "A guest orders oysters. Your first wine suggestion?", choices: ["Sancerre", "Rioja", "Côtes du Rhône", "Napa Cabernet"], answer: 0, why: "Flinty Sauvignon Blanc and oysters is the classic match." },
-        { q: "Why lead with these six?", choices: ["They're older", "They lift spend per guest by $3 to $5 a glass", "The owner likes them", "They're cheaper"], answer: 1, why: "A better glass is the easiest upsell there is." },
+        { q: "Why lead with these six?", choices: ["They're older", "They lift spend per ticket by $3 to $5 a glass", "The owner likes them", "They're cheaper"], answer: 1, why: "A better glass is the easiest upsell there is." },
       ],
       ["server", "bartender", "sommelier"],
     ),

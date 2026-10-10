@@ -59,16 +59,17 @@ async function compute(storeIds: string[], from: string, to: string) {
   };
 
   // Daily series (all stores in scope summed)
-  const byDate = new Map<string, { date: string; sales: number; covers: number }>();
+  const byDate = new Map<string, { date: string; sales: number; covers: number; checks: number }>();
   for (const r of reports) {
-    const d = byDate.get(r.businessDate) ?? { date: r.businessDate, sales: 0, covers: 0 };
+    const d = byDate.get(r.businessDate) ?? { date: r.businessDate, sales: 0, covers: 0, checks: 0 };
     d.sales += r.netSales;
     d.covers += r.covers;
+    d.checks += r.checks;
     byDate.set(r.businessDate, d);
   }
   const series = [...byDate.values()]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map((d) => ({ ...d, ppa: d.covers ? round2(d.sales / d.covers) : 0 }));
+    .map((d) => ({ ...d, spt: d.checks ? round2(d.sales / d.checks) : 0 }));
 
   // People
   const people = new Map<
@@ -108,13 +109,12 @@ async function compute(storeIds: string[], from: string, to: string) {
         hireDate,
         tenureDays,
         ramping: tenureDays != null && tenureDays < RAMP_DAYS,
-        ppa: p.covers ? round2(p.sales / p.covers) : 0,
-        avgCheck: p.checks ? round2(p.sales / p.checks) : 0,
+        spt: p.checks ? round2(p.sales / p.checks) : 0,
         winePer100: p.covers ? (p.wine / p.covers) * 100 : 0,
         dessertAttach: p.covers ? p.desserts / p.covers : 0,
       };
     })
-    .sort((a, b) => b.ppa - a.ppa);
+    .sort((a, b) => b.spt - a.spt);
 
   const days = Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1);
   const storeName = (id: string) => stores.find((x) => x.id === id)?.name ?? "";
@@ -125,10 +125,11 @@ async function compute(storeIds: string[], from: string, to: string) {
     storeId: p.storeId,
     storeName: storeName(p.storeId),
     covers: p.covers,
+    checks: p.checks,
     shifts: p.shifts,
     hireDate: p.hireDate,
     tenureDays: p.tenureDays,
-    ppa: p.ppa,
+    spt: p.spt,
   });
   const gapFor = (storeId: string | null) => {
     const floor = leaderboard.filter((p) => FLOOR.has(p.role) && (!storeId || p.storeId === storeId));
@@ -139,27 +140,27 @@ async function compute(storeIds: string[], from: string, to: string) {
     const top = pool.slice(0, 2);
     const bottom = pool.slice(-2);
     // Round the displayed figures first, then subtract — what you see is what we computed.
-    const topPpa = round2(top.reduce((a, p) => a + p.sales, 0) / top.reduce((a, p) => a + p.covers, 0));
-    const bottomPpa = round2(bottom.reduce((a, p) => a + p.sales, 0) / bottom.reduce((a, p) => a + p.covers, 0));
-    const bottomCovers = bottom.reduce((a, p) => a + p.covers, 0);
-    const gap = round2(topPpa - bottomPpa);
+    const topSpt = round2(top.reduce((a, p) => a + p.sales, 0) / top.reduce((a, p) => a + p.checks, 0));
+    const bottomSpt = round2(bottom.reduce((a, p) => a + p.sales, 0) / bottom.reduce((a, p) => a + p.checks, 0));
+    const bottomTickets = bottom.reduce((a, p) => a + p.checks, 0);
+    const gap = round2(topSpt - bottomSpt);
     const annualise = 365 / days;
     return {
       top: top.map(person),
       bottom: bottom.map(person),
       ramping,
       excludedShort,
-      topPpa,
-      bottomPpa,
+      topSpt,
+      bottomSpt,
       gap,
       /** Modeled yearly sales if the priority two closed half the gap. Sales, not profit. */
-      annualHalfGap: Math.round((gap / 2) * bottomCovers * annualise),
+      annualHalfGap: Math.round((gap / 2) * bottomTickets * annualise),
       assumptions: {
         from,
         to,
         days,
         poolSize: pool.length,
-        bottomCovers,
+        bottomTickets,
         annualise: round2(annualise),
         recoverable: 0.5,
         minShifts: MIN_SHIFTS,
@@ -182,13 +183,12 @@ async function compute(storeIds: string[], from: string, to: string) {
       name: st.name,
       number: st.number,
       timezone: st.timezone,
-      ppaTarget: st.ppaTarget,
+      ticketTarget: st.ticketTarget,
       nights: rs.length,
       sales,
       covers,
       checks,
-      ppa: covers ? round2(sales / covers) : 0,
-      avgCheck: checks ? round2(sales / checks) : 0,
+      spt: checks ? round2(sales / checks) : 0,
       comps,
       voids,
       discounts,
@@ -204,7 +204,7 @@ async function compute(storeIds: string[], from: string, to: string) {
   const checks = reports.reduce((a, r) => a + r.checks, 0);
   const leak = reports.reduce((a, r) => a + r.comps + r.voids + r.discounts, 0);
   const halfGapTotal = perStore.reduce((a, p) => a + (p.gap?.annualHalfGap ?? 0), 0);
-  const targetW = covers ? round2(perStore.reduce((a, p) => a + p.ppaTarget * p.covers, 0) / covers) : (stores[0]?.ppaTarget ?? 78);
+  const targetW = checks ? round2(perStore.reduce((a, p) => a + p.ticketTarget * p.checks, 0) / checks) : (stores[0]?.ticketTarget ?? 190);
   return {
     from,
     to,
@@ -214,9 +214,8 @@ async function compute(storeIds: string[], from: string, to: string) {
       sales,
       covers,
       checks,
-      ppa: covers ? round2(sales / covers) : 0,
-      avgCheck: checks ? round2(sales / checks) : 0,
-      ppaTarget: targetW,
+      spt: checks ? round2(sales / checks) : 0,
+      ticketTarget: targetW,
       nights: reports.length,
       comps: reports.reduce((a, r) => a + r.comps, 0),
       voids: reports.reduce((a, r) => a + r.voids, 0),
@@ -325,12 +324,12 @@ export const reports = {
     for (const st of night.stores) {
       if (st.nights === 0)
         actions.push({ priority: 1, kind: "report", text: `${st.name}: no shift report for ${lastNight}`, detail: "Enter it from the POS end-of-day", href: `/shift-report?store=${st.id}`, cta: "Enter report" });
-      else if (st.ppa < st.ppaTarget)
+      else if (st.spt < st.ticketTarget)
         actions.push({
           priority: 2,
           kind: "spend",
-          text: `${st.name}: spend per guest $${st.ppa.toFixed(2)} vs target $${st.ppaTarget.toFixed(2)}`,
-          detail: `$${(st.ppaTarget - st.ppa).toFixed(2)} below the store's own target last night`,
+          text: `${st.name}: spend per ticket $${st.spt.toFixed(2)} vs target $${st.ticketTarget.toFixed(2)}`,
+          detail: `$${(st.ticketTarget - st.spt).toFixed(2)} below the store's own target last night`,
           href: `/reports?store=${st.id}`,
           cta: "View findings",
         });
@@ -342,7 +341,7 @@ export const reports = {
           priority: 2,
           kind: "coaching",
           text: `Coach ${p.name} (${st.name})`,
-          detail: `Spend per guest $${p.ppa.toFixed(2)} over ${p.shifts} shifts · ${p.tenureDays ?? "?"} days in · schedule a graded floor exercise`,
+          detail: `Spend per ticket $${p.spt.toFixed(2)} over ${p.shifts} shifts · ${p.tenureDays ?? "?"} days in · schedule a graded floor exercise`,
           href: `/grading/new?member=${p.memberId}&rubric=floor-service`,
           cta: "Grade a table",
         });

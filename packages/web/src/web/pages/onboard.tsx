@@ -21,7 +21,7 @@ export function Setup({ user }: { user: { name: string; email: string } }) {
   const setup = useSetup();
   const demo = useStartDemo();
   const { signOut } = useSessionActions();
-  const [f, setF] = useState({ groupName: "", ownerName: user.name, storeName: "", city: "", storePin: "", ppaTarget: "" });
+  const [f, setF] = useState({ groupName: "", ownerName: user.name, storeName: "", city: "", storePin: "", ticketTarget: "" });
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
   return (
     <NoirScreen wide>
@@ -29,7 +29,7 @@ export function Setup({ user }: { user: { name: string; email: string } }) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          setup.mutate({ ...f, ppaTarget: f.ppaTarget ? Number(f.ppaTarget) : undefined });
+          setup.mutate({ ...f, ticketTarget: Number(f.ticketTarget) });
         }}
         className="space-y-4 rounded-[2px] border border-noir-line bg-noir/70 p-6 md:p-7"
       >
@@ -51,8 +51,8 @@ export function Setup({ user }: { user: { name: string; email: string } }) {
           <F label="Store PIN (4 to 6 digits, managers use it to open the store)">
             <input aria-label="Store PIN" className="field-noir figure tracking-[0.3em]" inputMode="numeric" required value={f.storePin} onChange={(e) => setF({ ...f, storePin: e.target.value.replace(/\D/g, "").slice(0, 6) })} />
           </F>
-          <F label="Spend per guest target ($, optional, default 78)">
-            <input aria-label="Spend per guest target" className="field-noir figure" inputMode="decimal" placeholder="78" value={f.ppaTarget} onChange={(e) => setF({ ...f, ppaTarget: e.target.value.replace(/[^\d.]/g, "").slice(0, 6) })} />
+          <F label="Spend per ticket target ($, net sales ÷ tickets)">
+            <input aria-label="Spend per ticket target" className="field-noir figure" inputMode="decimal" required placeholder="190" value={f.ticketTarget} onChange={(e) => setF({ ...f, ticketTarget: e.target.value.replace(/[^\d.]/g, "").slice(0, 6) })} />
           </F>
         </div>
         {setup.error && <div className="text-[13px] text-[#e08b84]">{errMsg(setup.error)}</div>}

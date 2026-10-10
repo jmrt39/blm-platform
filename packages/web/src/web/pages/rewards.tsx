@@ -28,8 +28,8 @@ export default function RewardsPage() {
       ) : (
         <>
           <p className="-mt-2 mb-8 max-w-[70ch] text-[13.5px] text-ink-soft">
-            Eligibility is worked out from the platform's own numbers: spend per guest from shift reports, floor grades, sign-offs, guest quotes and conduct. Target{" "}
-            {money(q.data!.store.ppaTarget)} spend per guest (bartenders two thirds of that). A manager records the award when it's given.
+            Eligibility is worked out from the platform's own numbers: spend per ticket from shift reports, floor grades, sign-offs, guest quotes and conduct. Target{" "}
+            {money(q.data!.store.ticketTarget)} spend per ticket (bartenders 40% of that). A manager records the award when it's given.
           </p>
           {award.error && <div className="mb-4 text-[13px] text-oxblood">{errMsg(award.error)}</div>}
           <div className="grid gap-5 lg:grid-cols-2">

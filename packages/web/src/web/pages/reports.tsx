@@ -83,15 +83,15 @@ export default function ReportsPage() {
             <Stat label={<>Net sales <HowCalculated metric="netSales" period={`${r.from} to ${r.to}`} /></>} value={money(r.totals.sales)} sub={r.comparable ? <Delta cur={r.totals.sales} prev={r.previous.sales} /> : <span className="text-ink-soft">No full prior period</span>} />
             <Stat label="Covers" value={num(r.totals.covers)} sub={r.comparable ? <Delta cur={r.totals.covers} prev={r.previous.covers} /> : <span className="text-ink-soft">—</span>} />
             <Stat
-              label={<>Spend per guest <HowCalculated metric="spendPerGuest" period={`${r.from} to ${r.to}`} /></>}
-              value={money2(r.totals.ppa)}
-              tone={r.totals.ppa >= r.totals.ppaTarget ? "good" : "bad"}
+              label={<>Spend per ticket <HowCalculated metric="spendPerTicket" period={`${r.from} to ${r.to}`} /></>}
+              value={money2(r.totals.spt)}
+              tone={r.totals.spt >= r.totals.ticketTarget ? "good" : "bad"}
               sub={
                 <>
-                  Target {money2(r.totals.ppaTarget)} · avg check {money2(r.totals.avgCheck)} {r.comparable && (
+                  Target {money2(r.totals.ticketTarget)} · {num(r.totals.checks)} tickets {r.comparable && (
                     <>
                       {" · "}
-                      <Delta cur={r.totals.ppa} prev={r.previous.ppa} fmt={(x) => money2(x)} />
+                      <Delta cur={r.totals.spt} prev={r.previous.spt} fmt={(x) => money2(x)} />
                     </>
                   )}
                 </>
@@ -114,29 +114,29 @@ export default function ReportsPage() {
               </div>
               <SalesBars series={r.series} />
               <div className="mb-2 mt-8 flex items-baseline justify-between">
-                <div className="eyebrow">Spend per guest by night</div>
+                <div className="eyebrow">Spend per ticket by night</div>
                 <div className="text-[11.5px] text-ink-soft">dashed = target</div>
               </div>
-              <Spark data={r.series.map((s) => s.ppa)} target={r.totals.ppaTarget} height={70} />
+              <Spark data={r.series.map((s) => s.spt)} target={r.totals.ticketTarget} height={70} />
             </div>
             <div>
-              <div className="eyebrow mb-3">Server spend per guest <HowCalculated metric="serverSpend" period={`${r.from} to ${r.to}`} /></div>
+              <div className="eyebrow mb-3">Server spend per ticket <HowCalculated metric="serverSpend" period={`${r.from} to ${r.to}`} /></div>
               {r.gap ? (
                 <div className="rounded-[2px] bg-noir p-6 text-ivory">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-gold">Top two</div>
-                      <div className="figure text-[30px]">{money2(r.gap.topPpa)}</div>
+                      <div className="figure text-[30px]">{money2(r.gap.topSpt)}</div>
                       <div className="text-[11.5px] text-[#b9b0a3]">{r.gap.top.map((p) => p.name).join(" · ")}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-gold">Priority coaching</div>
-                      <div className="figure text-[30px]">{money2(r.gap.bottomPpa)}</div>
+                      <div className="figure text-[30px]">{money2(r.gap.bottomSpt)}</div>
                       <div className="text-[11.5px] text-[#b9b0a3]">{r.gap.bottom.map((p) => p.name).join(" · ")}</div>
                     </div>
                   </div>
                   <div className="mt-5 border-t border-noir-line pt-4 text-[13px] text-[#b9b0a3]">
-                    A <span className="font-semibold text-gold">{money2(r.gap.gap)}</span> gap per guest ({money2(r.gap.topPpa)} − {money2(r.gap.bottomPpa)}). Modeled annual sales opportunity if half is closed:{" "}
+                    A <span className="font-semibold text-gold">{money2(r.gap.gap)}</span> gap per ticket ({money2(r.gap.topSpt)} − {money2(r.gap.bottomSpt)}). Modeled annual sales opportunity if half is closed:{" "}
                     <span className="figure text-[20px] text-gold">{money(r.gap.annualHalfGap)}</span>
                     <HowCalculated metric="opportunity" dark />
                     <div className="mt-1 text-[11px] text-[#8f877b]">
@@ -164,11 +164,10 @@ export default function ReportsPage() {
                     <tr>
                       <th className="sticky left-0 z-10 bg-paper">Store</th>
                       <th className="r">Net sales</th>
-                      <th className="r">Covers</th>
-                      <th className="r">Spend / guest</th>
+                      <th className="r">Tickets</th>
+                      <th className="r">Spend / ticket</th>
                       <th className="r">Target</th>
-                      <th className="r">Avg check</th>
-                      <th className="r">Gap / guest</th>
+                      <th className="r">Gap / ticket</th>
                       <th className="r">Modeled opportunity / yr</th>
                       <th className="r">Leakage</th>
                       <th className="r">On time completion</th>
@@ -183,10 +182,9 @@ export default function ReportsPage() {
                           </button>
                         </td>
                         <td className="r figure text-[16px]">{money(s.sales)}</td>
-                        <td className="r">{num(s.covers)}</td>
-                        <td className={cn("r font-semibold", s.ppa >= s.ppaTarget ? "text-sage" : "text-oxblood")}>{money2(s.ppa)}</td>
-                        <td className="r text-ink-soft">{money2(s.ppaTarget)}</td>
-                        <td className="r">{money2(s.avgCheck)}</td>
+                        <td className="r">{num(s.checks)}</td>
+                        <td className={cn("r font-semibold", s.spt >= s.ticketTarget ? "text-sage" : "text-oxblood")}>{money2(s.spt)}</td>
+                        <td className="r text-ink-soft">{money2(s.ticketTarget)}</td>
                         <td className="r">{s.gap ? money2(s.gap.gap) : "—"}</td>
                         <td className="r">{s.gap ? money(s.gap.annualHalfGap) : "—"}</td>
                         <td className="r">{pct(s.leakageRate, 1)}</td>
@@ -206,7 +204,7 @@ export default function ReportsPage() {
 
           <div className="border-t rule py-9">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-3">
-              <div className="eyebrow">Leaderboard · server spend per guest</div>
+              <div className="eyebrow">Leaderboard · server spend per ticket</div>
               <Seg
                 value={lbRole}
                 onChange={setLbRole}
@@ -225,10 +223,9 @@ export default function ReportsPage() {
                     <th>Name</th>
                     {r.combined && <th>Store</th>}
                     <th className="r">Shifts</th>
-                    <th className="r">Covers</th>
+                    <th className="r">Tickets</th>
                     <th className="r">Sales</th>
-                    <th className="r">Spend / guest</th>
-                    <th className="r">Avg check</th>
+                    <th className="r">Spend / ticket</th>
                     <th className="r">Wine / 100</th>
                     <th className="r">Dessert attach</th>
                   </tr>
@@ -236,10 +233,10 @@ export default function ReportsPage() {
                 <tbody>
                   {r.leaderboard
                     .filter((p) => (lbRole === "all" ? true : lbRole === "bar" ? p.role === "bartender" : p.role === "server" || p.role === "sommelier"))
-                    .sort((a, b) => Number(a.ramping) - Number(b.ramping) || b.ppa - a.ppa)
+                    .sort((a, b) => Number(a.ramping) - Number(b.ramping) || b.spt - a.spt)
                     .map((p, _i, arr) => {
                       const rank = p.ramping ? null : arr.filter((x) => !x.ramping).indexOf(p) + 1;
-                      const tgt = r.stores.find((s) => s.id === p.storeId)?.ppaTarget ?? r.totals.ppaTarget;
+                      const tgt = r.stores.find((s) => s.id === p.storeId)?.ticketTarget ?? r.totals.ticketTarget;
                       return (
                         <tr key={p.key}>
                           <td className="figure text-[16px] text-gold-deep">{rank ?? <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-ink-soft">New</span>}</td>
@@ -256,10 +253,9 @@ export default function ReportsPage() {
                           </td>
                           {r.combined && <td className="text-ink-soft">{p.storeName}</td>}
                           <td className="r">{p.shifts}</td>
-                          <td className="r">{num(p.covers)}</td>
+                          <td className="r">{num(p.checks)}</td>
                           <td className="r">{money(p.sales)}</td>
-                          <td className={cn("r font-semibold", p.role !== "bartender" && !p.ramping && (p.ppa >= tgt ? "text-sage" : "text-oxblood"))}>{money2(p.ppa)}</td>
-                          <td className="r">{money2(p.avgCheck)}</td>
+                          <td className={cn("r font-semibold", p.role !== "bartender" && !p.ramping && (p.spt >= tgt ? "text-sage" : "text-oxblood"))}>{money2(p.spt)}</td>
                           <td className="r">{p.winePer100.toFixed(1)}</td>
                           <td className="r">{pct(p.dessertAttach)}</td>
                         </tr>
