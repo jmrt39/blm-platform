@@ -95,6 +95,18 @@ export const guests = {
     if (open && rows.some((r) => r.memberIds.length)) await logPrivate(v, "reviews", { detail: "Guest feedback inbox", headers: context.headers, dedupeMinutes: 10 });
     // The average counts every review; only the words of ones naming staff stay private.
     const rated = rows.filter((r) => r.rating != null);
+    const toneAll = { loved: 0, opportunity: 0, hiddenLoved: 0, hiddenOpportunity: 0 };
+    const hiddenIds = new Set(hidden.map((r) => r.id));
+    for (const r of rows) {
+      const tone = toneOf(r.rating, r.quote);
+      if (tone === "loved") {
+        toneAll.loved++;
+        if (hiddenIds.has(r.id)) toneAll.hiddenLoved++;
+      } else if (tone === "opportunity") {
+        toneAll.opportunity++;
+        if (hiddenIds.has(r.id)) toneAll.hiddenOpportunity++;
+      }
+    }
     if (hidden.length) {
       const drop = new Set(hidden.map((r) => r.id));
       for (let i = rows.length - 1; i >= 0; i--) if (drop.has(rows[i]!.id)) rows.splice(i, 1);
@@ -121,6 +133,8 @@ export const guests = {
       today,
       /** Reviews naming staff kept back until private records are open. */
       hiddenNamed: hidden.length,
+      /** Loved and to improve across every review, private ones included, and how many of each are private. */
+      toneAll,
     };
   }),
 

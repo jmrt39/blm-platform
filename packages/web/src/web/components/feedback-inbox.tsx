@@ -248,7 +248,7 @@ export function FeedbackInbox({ storeId, showStore }: { storeId: string | null; 
               <span className="inline-flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.16em] text-sage">
                 <Heart className="size-3.5" /> What guests loved
               </span>
-              <span className="figure text-[24px] text-sage">{loved.length}</span>
+              <span className="figure text-[24px] text-sage">{d.toneAll.loved}</span>
             </button>
             {loved.length ? (
               <ul className="mt-1">
@@ -256,8 +256,13 @@ export function FeedbackInbox({ storeId, showStore }: { storeId: string | null; 
                   <Glance key={f.id} f={f} onOpen={() => openAt("loved")} />
                 ))}
               </ul>
-            ) : (
+            ) : d.toneAll.hiddenLoved ? null : (
               <p className="mt-3 text-[13px] text-ink-soft">Nothing glowing in the last 60 days yet.</p>
+            )}
+            {d.toneAll.hiddenLoved > 0 && (
+              <p className="mt-2 text-[12px] text-ink-soft">
+                Plus {d.toneAll.hiddenLoved} that praise{d.toneAll.hiddenLoved === 1 ? "s" : ""} a team member by name, kept private.
+              </p>
             )}
           </div>
           <div className="border-t px-5 py-4 md:border-t-0 md:px-6 rule">
@@ -265,7 +270,7 @@ export function FeedbackInbox({ storeId, showStore }: { storeId: string | null; 
               <span className="inline-flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.16em] text-oxblood">
                 <TrendingUp className="size-3.5" /> Opportunities to improve
               </span>
-              <span className="figure text-[24px] text-oxblood">{opps.length}</span>
+              <span className="figure text-[24px] text-oxblood">{d.toneAll.opportunity}</span>
             </button>
             {d.themes.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -282,8 +287,13 @@ export function FeedbackInbox({ storeId, showStore }: { storeId: string | null; 
                   <Glance key={f.id} f={f} onOpen={() => openAt("opportunity")} />
                 ))}
               </ul>
-            ) : (
+            ) : d.toneAll.hiddenOpportunity ? null : (
               <p className="mt-3 text-[13px] text-ink-soft">No complaints in the last 60 days. Keep it that way.</p>
+            )}
+            {d.toneAll.hiddenOpportunity > 0 && (
+              <p className="mt-2 text-[12px] text-ink-soft">
+                Plus {d.toneAll.hiddenOpportunity} that name{d.toneAll.hiddenOpportunity === 1 ? "s" : ""} a team member, kept private.
+              </p>
             )}
           </div>
         </div>
