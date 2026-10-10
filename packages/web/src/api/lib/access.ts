@@ -4,7 +4,7 @@ import { base } from "../__core/app";
 import { auth } from "../auth";
 import { db } from "../database";
 import * as s from "../database/schema";
-import { isManagementRole, type ViewerLevel } from "../../shared/domain";
+import { DEMO_ORG_NAME, isManagementRole, type ViewerLevel } from "../../shared/domain";
 
 export const STORE_HEADER = "x-blm-store";
 
@@ -71,7 +71,7 @@ export async function resolveViewer(headers: Headers): Promise<ViewerState> {
           kind: "ready",
           user,
           orgId: org.id,
-          orgName: org.name,
+          orgName: org.isDemo ? DEMO_ORG_NAME : org.name,
           isDemo: org.isDemo,
           level: isManagementRole(member.role) ? "manager" : "staff",
           storeIds: [member.storeId],
@@ -105,7 +105,7 @@ export async function resolveViewer(headers: Headers): Promise<ViewerState> {
         kind: "ready",
         user,
         orgId: org.id,
-        orgName: org.name,
+        orgName: org.isDemo ? DEMO_ORG_NAME : org.name,
         isDemo: org.isDemo,
         level: access.role === "owner" ? "owner" : "area",
         storeIds,

@@ -156,3 +156,6 @@ export function rolesList(roles: string[]) {
   });
   return w.length < 2 ? (w[0] ?? "") : `${w.slice(0, -1).join(", ")} and ${w[w.length - 1]}`;
 }
+
+/** What the demo group is called on screen, everywhere. */
+export const DEMO_ORG_NAME = "Sample Restaurant Group";

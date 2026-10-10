@@ -7,7 +7,7 @@ import { useViewer } from "./viewer";
 import { useViewAs } from "../queries/session";
 import { useStudioMe } from "../queries/studio";
 import { storeSession } from "../lib/store-session";
-import { ROLE_LABEL } from "../../shared/domain";
+import { DEMO_ORG_NAME, ROLE_LABEL } from "../../shared/domain";
 import { cn } from "../lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { PrivacyBadge, UnlockPanel, isPrivate } from "./private";
@@ -102,7 +102,7 @@ export function DemoLabel({ className }: { className?: string }) {
         className,
       )}
     >
-      <span className="size-1.5 rounded-full bg-gold" /> Sample restaurant group
+      <span className="size-1.5 rounded-full bg-gold" /> {DEMO_ORG_NAME}
     </span>
   );
 }

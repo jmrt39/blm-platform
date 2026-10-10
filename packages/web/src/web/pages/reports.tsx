@@ -9,7 +9,7 @@ import { Monogram } from "../components/monogram";
 import { useRange } from "../queries/reports";
 import { LastYearLine } from "../components/last-year";
 import { money, money2, num, pct, shortDay } from "../lib/format";
-import { ROLE_LABEL } from "../../shared/domain";
+import { DEMO_ORG_NAME, ROLE_LABEL } from "../../shared/domain";
 import { MIX_RULE, pctOfTarget } from "../../shared/metrics";
 import { cn } from "../lib/utils";
 import { motion } from "motion/react";
@@ -287,7 +287,7 @@ export default function ReportsPage() {
           </div>
           <div className="flex items-center justify-between border-t-2 border-ink pt-4 text-[11px] text-ink-soft">
             <span>The Platform · Bottom Line Multiplied</span>
-            <span>{v.me.isDemo ? "Sample restaurant group · from signed shift reports and checklists" : "From signed shift reports and checklists"}</span>
+            <span>{v.me.isDemo ? `${DEMO_ORG_NAME} · from signed shift reports and checklists` : "From signed shift reports and checklists"}</span>
           </div>
         </div>
       )}

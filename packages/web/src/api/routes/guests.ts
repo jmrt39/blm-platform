@@ -93,11 +93,12 @@ export const guests = {
     const open = await wallOpen(v);
     const hidden = open ? [] : rows.filter((r) => r.memberIds.length && r.pinnedOn !== today);
     if (open && rows.some((r) => r.memberIds.length)) await logPrivate(v, "reviews", { detail: "Guest feedback inbox", headers: context.headers, dedupeMinutes: 10 });
+    // The average counts every review; only the words of ones naming staff stay private.
+    const rated = rows.filter((r) => r.rating != null);
     if (hidden.length) {
       const drop = new Set(hidden.map((r) => r.id));
       for (let i = rows.length - 1; i >= 0; i--) if (drop.has(rows[i]!.id)) rows.splice(i, 1);
     }
-    const rated = rows.filter((r) => r.rating != null);
     const items = rows.map((r) => ({ ...out(r, today), storeName: storeName[r.storeId] ?? "", respondUrl: respondUrl(r.source, r.externalUrl, linksOf[r.storeId]) }));
     const opps = items.filter((f) => f.tone === "opportunity");
     const themeCount: Record<string, number> = {};
