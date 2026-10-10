@@ -763,7 +763,7 @@ export async function rewardsBoard(lib: LibraryIndex, store: typeof s.stores.$in
           eligible: reached >= 10,
           period,
           progress: due ? 1 : (n % 10) / 10,
-          next: due ? `${reached} guests have used your name. Pick your Friday or Saturday section.` : `${toNext} more guest${toNext === 1 ? "" : "s"} using your name to reach ${reached + 10}`,
+          next: due ? `${reached} guests have used your name. Pick your prize: a Friday or Saturday section, a shift with no side work, or $50 to spend here.` : `${toNext} more guest${toNext === 1 ? "" : "s"} using your name to reach ${reached + 10}`,
           checks: [ck("Named", "Ten guests using their name in a review or survey (the count never resets)", reached >= 10, due || reached === 0 ? String(n) : `${n}, next at ${reached + 10}`)],
           why: due ? undefined : `${toNext} more guest${toNext === 1 ? "" : "s"} using their name to reach ${reached + 10}`,
         },

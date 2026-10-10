@@ -166,6 +166,13 @@ function RewardCard({ row, i, self }: { row: Row; i: number; self: boolean }) {
             {r.value}
             {row.key === "above_beyond" && e?.amount ? <> · {money(e.amount)} in all</> : null}
           </div>
+          {r.choices?.length ? (
+            <ul className="mt-1 space-y-0.5 text-[12px] text-ink-soft">
+              {r.choices.map((c) => (
+                <li key={c}>· {c}</li>
+              ))}
+            </ul>
+          ) : null}
           {row.why && (
             <div className={cn("mt-1.5 text-[13px] font-semibold leading-snug", row.state === "ineligible" ? "text-oxblood" : row.state === "not_open" ? "text-ink-soft" : "text-ink")}>
               {say(row.why)}
@@ -179,6 +186,7 @@ function RewardCard({ row, i, self }: { row: Row; i: number; self: boolean }) {
             <div className="font-semibold text-sage">
               Awarded by {row.awarded.awardedByName} on {new Date(row.awarded.awardedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
               {row.awarded.amount ? ` · ${money(row.awarded.amount)}` : ""}
+              {row.awarded.note ? ` · ${row.awarded.note}` : ""}
             </div>
           )}
           {ahead ? (
@@ -317,6 +325,7 @@ export default function MyRewardsPage() {
                 <span>
                   <span className="font-semibold">{L.rewardByKey[a.reward as keyof typeof L.rewardByKey]?.title ?? a.reward}</span>
                   <span className="ml-2 text-ink-soft">{a.period}</span>
+                  {a.note && <span className="ml-2 text-ink-soft">· {a.note}</span>}
                 </span>
                 <span className="text-[12.5px] text-ink-soft">
                   {a.amount ? <span className="figure mr-3 text-[16px] text-sage">{money(a.amount)}</span> : null}

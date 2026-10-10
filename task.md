@@ -152,6 +152,18 @@ Progress
 - [x] Add colleague: manager accounts get sign in instructions (no email sending yet)
 - [x] Website: sample audit and payback calculator switched to spend per ticket
 - [x] verify (tsc, lint, build, Playwright), commit, push
+
+## Request 2026-10-12: program per house, what clients hand over, prize choices
+- [x] Standard library uses a {house} token; filled from the org name (houseName strips Group/Hospitality); unpublished standard cached per house
+- [x] Intake material: food menu, wine list, bar menu required; steps of service, handbook, protocols, POS optional with the BLM standard as fallback
+- [x] New intake gap: menu, wine and bar still carry the BLM sample lists, with "Write from their lists"
+- [x] Targets optional: set from POS history; Studio shows the last 12 months average ticket
+- [x] Intake sheet regenerated (Why we ask column, optional targets)
+- [x] Rewards: Most guest surveys pays $50 to spend at the restaurant; Ten guests, by name lets the winner pick 1 of 3 (choices on the reward, manager picks when awarding, kept as the award note, shown on the board, history and My rewards)
+- [x] Harbor House (placeholder): Bring in the latest, v4 published, no 1906 in its copy
+- [x] Website incentives line updated
+- [x] verify (tsc, lint, build, Playwright), commit
+- [ ] push (needs a new GitHub token)
 Open
-- Harbor House: 11 items still name 1906 (run Rewrite for this house once real material arrives); wine list and steps of service sources missing
+- Harbor House: still carries the BLM sample menu, wines and drinks (Write from their lists once real lists arrive)
 - Email sending (invites, notifications) not built

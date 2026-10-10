@@ -66,6 +66,7 @@ export const rewardSchema = z.object({
   value: z.string().max(200),
   cadence: z.enum(["Quarterly", "Each shift", "Monthly", "Annual", "Every 10"]),
   rule: z.string().max(600),
+  choices: z.array(z.string().min(2).max(120)).min(2).max(5).optional(),
 });
 
 export const checklistSchema = z.object({

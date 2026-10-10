@@ -23,6 +23,8 @@ export default function RewardsPage() {
   const award = useAwardReward();
   const revoke = useRevokeReward();
   const [open, setOpen] = useState<string | null>(null);
+  // Rewards with a choice of prizes: which row is picking, and what they picked.
+  const [picking, setPicking] = useState<{ key: string; memberId: string; choice: string } | null>(null);
   const L = useLibrary();
   const n = L.lib.rewards.length;
   return (
@@ -94,6 +96,7 @@ export default function RewardsPage() {
                     <details className="mt-1.5 text-[11.5px] text-ink-soft">
                       <summary className="cursor-pointer list-none font-semibold hover:text-ink">The rule in full</summary>
                       <p className="mt-1">{r.rule}</p>
+                      {r.choices?.length ? <p className="mt-1">The prizes: {r.choices.join("; ")}.</p> : null}
                       {b.basis && <p className="mt-1">{b.basis}</p>}
                     </details>
                   </div>
@@ -145,16 +148,57 @@ export default function RewardsPage() {
                                     <div className="flex flex-col items-end gap-1">
                                       {e.amount ? <span className="figure text-[14px] text-sage">{money(e.amount)}</span> : null}
                                       {done ? (
-                                        <span className="chip border-sage/50 text-sage">
-                                          <Check className="size-3" /> Awarded
-                                        </span>
+                                        <>
+                                          <span className="chip border-sage/50 text-sage">
+                                            <Check className="size-3" /> Awarded
+                                          </span>
+                                          {done.note && <span className="max-w-[16rem] text-[11.5px] text-ink-soft">{done.note}</span>}
+                                        </>
+                                      ) : q.data!.canAward && r.choices?.length && picking?.key === b.key && picking.memberId === e.memberId ? (
+                                        <div className="flex w-[15rem] flex-col items-stretch gap-1 text-left">
+                                          <span className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-soft">Which prize did {e.name.split(" ")[0]} pick?</span>
+                                          {r.choices.map((c) => (
+                                            <label key={c} className="flex cursor-pointer items-start gap-1.5 text-[12px] leading-snug">
+                                              <input
+                                                type="radio"
+                                                aria-label={c}
+                                                className="mt-0.5 accent-[#1c1915]"
+                                                name={`prize-${b.key}-${e.memberId}`}
+                                                checked={picking.choice === c}
+                                                onChange={() => setPicking({ ...picking, choice: c })}
+                                              />
+                                              {c}
+                                            </label>
+                                          ))}
+                                          <div className="mt-1 flex justify-end gap-2">
+                                            <button className="text-[12px] font-semibold text-ink-soft hover:text-ink" onClick={() => setPicking(null)}>
+                                              Cancel
+                                            </button>
+                                            <button
+                                              className="btn btn-ink !h-8 !px-3 !text-[12px]"
+                                              disabled={award.isPending || !picking.choice}
+                                              onClick={() =>
+                                                award.mutate(
+                                                  { storeId: v.storeId, memberId: e.memberId, reward: b.key, period: e.period ?? b.period.key, amount: e.amount ?? null, note: picking.choice },
+                                                  { onSuccess: () => setPicking(null) },
+                                                )
+                                              }
+                                            >
+                                              <Award className="size-3.5" /> Award
+                                            </button>
+                                          </div>
+                                        </div>
                                       ) : q.data!.canAward ? (
                                         <button
                                           className="btn btn-ink !h-8 !px-3 !text-[12px]"
                                           disabled={award.isPending}
-                                          onClick={() => award.mutate({ storeId: v.storeId, memberId: e.memberId, reward: b.key, period: e.period ?? b.period.key, amount: e.amount ?? null })}
+                                          onClick={() =>
+                                            r.choices?.length
+                                              ? setPicking({ key: b.key, memberId: e.memberId, choice: "" })
+                                              : award.mutate({ storeId: v.storeId, memberId: e.memberId, reward: b.key, period: e.period ?? b.period.key, amount: e.amount ?? null })
+                                          }
                                         >
-                                          <Award className="size-3.5" /> Award
+                                          <Award className="size-3.5" /> {r.choices?.length ? "Award a prize" : "Award"}
                                         </button>
                                       ) : (
                                         <span className={cn("chip whitespace-nowrap", STATUS_CHIP.eligible)}>Eligible now</span>
@@ -195,7 +239,10 @@ export default function RewardsPage() {
                   {q.data!.history.map((h) => (
                     <tr key={h.id}>
                       <td className="font-semibold">{h.memberName}</td>
-                      <td>{L.rewardByKey[h.reward]?.title ?? h.reward}</td>
+                      <td>
+                        {L.rewardByKey[h.reward]?.title ?? h.reward}
+                        {h.note && <span className="ml-2 text-[12px] text-ink-soft">{h.note}</span>}
+                      </td>
                       <td className="text-ink-soft">{h.period}</td>
                       <td className="r">{h.amount ? money(h.amount) : ""}</td>
                       <td className="r text-[12px] text-ink-soft">

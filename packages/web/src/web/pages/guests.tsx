@@ -150,7 +150,7 @@ export default function GuestsPage() {
               ) : (
                 <div className="text-[13px] text-ink-soft">Nobody named yet this month.</div>
               )}
-              <div className="mt-3 text-[12px] text-ink-soft">A quote naming someone counts toward Guest quote recognition and the peer restaurant dinner. Every 10 where the guest used their name earns their pick of a Friday or Saturday section.</div>
+              <div className="mt-3 text-[12px] text-ink-soft">A quote naming someone counts toward Guest quote recognition and the peer restaurant dinner. Every 10 where the guest used their name earns a prize they pick: a Friday or Saturday section, a shift with no side work, or $50 to spend here.</div>
             </div>
           </aside>
         </div>

@@ -22,6 +22,8 @@ export type Reward = {
   cadence: "Quarterly" | "Each shift" | "Monthly" | "Annual" | "Every 10";
   /** How it is earned, in one line. */
   rule: string;
+  /** When the winner picks their prize: the options, in the order shown. */
+  choices?: string[];
 };
 
 export const REWARDS: Reward[] = [
@@ -93,9 +95,9 @@ export const REWARDS: Reward[] = [
     key: "most_surveys",
     n: 9,
     title: "Most guest surveys",
-    value: "$50 house credit",
+    value: "$50 to spend at the restaurant",
     cadence: "Monthly",
-    rule: "The most guest reviews and surveys naming them this month. Ties share it.",
+    rule: "The most guest reviews and surveys naming them this month wins $50 to spend at the restaurant: dinner for them or a guest. Ties share it.",
   },
   {
     key: "above_beyond",
@@ -109,9 +111,10 @@ export const REWARDS: Reward[] = [
     key: "named_ten",
     n: 11,
     title: "Ten guests, by name",
-    value: "Your pick of section on a Friday or Saturday",
+    value: "Pick one of three",
     cadence: "Every 10",
-    rule: "Every 10 guest reviews or surveys where the guest used your name. A manager only tag doesn't count: the guest has to say it. Not cash: you choose your section for one Friday or Saturday of your choice.",
+    rule: "Every 10 guest reviews or surveys where the guest used your name. A manager only tag doesn't count: the guest has to say it. You pick one: your section on a Friday or Saturday, one shift with no side work, or $50 to spend at the restaurant.",
+    choices: ["Your pick of section on a Friday or Saturday", "One shift with no side work", "$50 to spend at the restaurant"],
   },
 ];
 

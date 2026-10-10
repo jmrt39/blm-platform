@@ -129,6 +129,9 @@ export const rewards = {
       const store = await loadStore(v, input.storeId);
       const [m] = await db.select().from(s.members).where(and(eq(s.members.id, input.memberId), eq(s.members.storeId, store.id)));
       if (!m) throw new ORPCError("NOT_FOUND", { message: "Colleague not found." });
+      // A reward with a choice of prizes records which one they picked.
+      const choices = (await loadLibrary(v.orgId)).rewardByKey[input.reward]?.choices;
+      if (choices?.length && !choices.includes(input.note)) throw new ORPCError("BAD_REQUEST", { message: `Pick which prize ${m.name} chose.` });
       try {
         await db.insert(s.rewardAwards).values({
           orgId: store.orgId,
