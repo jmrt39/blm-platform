@@ -644,6 +644,12 @@ export function AddColleague() {
             </div>
             <div className="mt-3 text-[12px] text-[#8b8277]">The PIN only works at this store.</div>
           </div>
+          {isManagementRole(f.role) && f.email && (
+            <div className="mb-7 rounded-[2px] border border-gold-deep/50 p-5 text-[14px] leading-relaxed">
+              <div className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] text-gold">Manager tools</div>
+              The app does not send emails yet, so tell {f.name.split(" ")[0]} yourself: open <b>{window.location.origin}</b>, choose create an account, and use <b>{f.email}</b>. Their manager tools open as soon as they sign in with that email.
+            </div>
+          )}
           <div className="flex gap-2">
             <Link href={`/team/${done.id}`} className="btn btn-ink">
               Open their 30/60/90

@@ -140,4 +140,18 @@ Progress
 - [x] (f) mixed targets: own target per line, vs own target for people, mix target for stores
 - [x] (g) Ten guests, by name (every 10 named reviews), home feedback card (loved / opportunities), review platform links, Respond in a new tab, CSV import
 - [x] Reward rings: lower of shifts needed and spend vs bar; ramping colleagues shown, not ranked; shift summary on My rewards
-- [ ] push (still 403)
+- [x] push
+
+## Request 2026-10-11: first clients readiness, rewards clarity, intake
+- [x] Rewards: exact criteria with ✓/✗ per person, Eligible / Can still earn / Ineligible with the reason, on the board and My rewards
+- [x] Intake sheet (public/templates/blm-client-intake.xlsx, scripts/make-intake-template.py)
+- [x] Studio Intake tab: download, import preview, import report, what's missing per client, Bring in the latest, Rewrite for this house
+- [x] intake routes (missing, import, refreshStandard), roster + history libs shared with setup
+- [x] Harbor House filled with placeholder intake data, standard refreshed, v2 published
+- [x] Copy: dashes and hyphens out of UI copy; old onboarding titles still link (tolerant match + DB backfill)
+- [x] Add colleague: manager accounts get sign in instructions (no email sending yet)
+- [x] Website: sample audit and payback calculator switched to spend per ticket
+- [x] verify (tsc, lint, build, Playwright), commit, push
+Open
+- Harbor House: 11 items still name 1906 (run Rewrite for this house once real material arrives); wine list and steps of service sources missing
+- Email sending (invites, notifications) not built
