@@ -257,6 +257,11 @@ function UserChip() {
                 Private records and backups
               </Link>
             )}
+            {(v.me.level === "owner" || v.me.level === "area" || (v.me.level === "manager" && v.me.member?.role === "gm")) && (
+              <Link href="/pos" onClick={() => setOpen(false)} className="block rounded-[2px] px-3 py-2 text-[13px] text-ivory hover:bg-noir">
+                POS import
+              </Link>
+            )}
             {studio.data?.staff && (
               <Link href="/studio" onClick={() => setOpen(false)} className="block rounded-[2px] px-3 py-2 text-[13px] text-gold hover:bg-noir">
                 Implementation Studio

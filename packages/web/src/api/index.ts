@@ -28,7 +28,12 @@ import { intake } from "./routes/intake";
 import { account } from "./routes/account";
 import { privacy } from "./routes/privacy";
 import { backups } from "./routes/backups";
+import { pos } from "./routes/pos";
 import { runNightly, startNightlyTimer } from "./lib/backups";
+import { handleInbound, ingest, runPosNightly, verifyWebhook } from "./lib/pos";
+import { db } from "./database";
+import { posConnections } from "./database/schema";
+import { eq } from "drizzle-orm";
 
 export const router = {
   ping,
@@ -58,6 +63,7 @@ export const router = {
   account,
   privacy,
   backups,
+  pos,
 };
 
 export type AppRouter = typeof router;
@@ -67,12 +73,37 @@ export type AppRouterClient = RouterClient<AppRouter>;
 const app = createApp(router);
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
-/** Nightly jobs (backups for now). Point a daily cron at it with the CRON_SECRET as a bearer token. */
+/** Nightly jobs: backups, Toast pulls and missing night alerts. Point a cron at it (hourly is fine) with CRON_SECRET as a bearer token. */
 app.post("/api/cron/nightly", async (c) => {
   const secret = process.env.CRON_SECRET;
   const got = c.req.header("authorization")?.replace(/^Bearer\s+/i, "") ?? c.req.header("x-cron-secret");
   if (!secret || got !== secret) return c.json({ error: "unauthorized" }, 401);
-  return c.json(await runNightly(), 200);
+  const pos = await runPosNightly();
+  return c.json({ ...(await runNightly()), pos }, 200);
+});
+
+/** Resend Inbound: a POS emailed its nightly report to a store's pos-...@ address. */
+app.post("/api/pos/inbound", async (c) => {
+  const body = await c.req.text();
+  if (!(await verifyWebhook(c.req.raw.headers, body))) return c.json({ error: "unauthorized" }, 401);
+  return c.json(await handleInbound(JSON.parse(body)), 200);
+});
+
+/** A relay or script posts one night: CSV as the body, or files in a form. ?date=YYYY-MM-DD is optional. */
+app.post("/api/pos/upload/:key", async (c) => {
+  const [conn] = await db.select().from(posConnections).where(eq(posConnections.inboundKey, c.req.param("key").toLowerCase()));
+  if (!conn || conn.status === "paused") return c.json({ error: "not found" }, 404);
+  const date = c.req.query("date");
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return c.json({ error: "date must be YYYY-MM-DD" }, 400);
+  const files: { name: string; text: string }[] = [];
+  if ((c.req.header("content-type") ?? "").includes("multipart/form-data")) {
+    const form = await c.req.formData();
+    for (const v of form.values() as Iterable<string | File>) if (typeof v !== "string") files.push({ name: v.name || "report.csv", text: await v.text() });
+  } else files.push({ name: c.req.query("name") || "report.csv", text: await c.req.text() });
+  if (!files.some((f) => f.text.trim())) return c.json({ error: "empty" }, 400);
+  if (files.reduce((a, f) => a + f.text.length, 0) > 20_000_000) return c.json({ error: "too large" }, 413);
+  const r = await ingest(conn, files, { source: "upload", businessDate: date ?? null });
+  return c.json(r, r.ok ? 200 : 422);
 });
 
 startNightlyTimer();

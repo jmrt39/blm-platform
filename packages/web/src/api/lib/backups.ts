@@ -5,6 +5,7 @@ import { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { db } from "../database";
 import * as s from "../database/schema";
 import { s3 } from "./s3";
+import { runPosNightly } from "./pos";
 
 /**
  * Nightly encrypted backups, one file per restaurant group: every row the group owns, gzipped
@@ -242,6 +243,7 @@ export function startNightlyTimer() {
   if (g.__blmNightly || process.env.NODE_ENV === "test") return;
   g.__blmNightly = true;
   const tick = () => {
+    void runPosNightly().catch((e) => console.error("nightly pos", e));
     if (new Date().getUTCHours() < NIGHTLY_UTC_HOUR) return;
     void runNightly().catch((e) => console.error("nightly backup", e));
   };

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index, blob } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, blob, real } from "drizzle-orm/sqlite-core";
 
 const id = () =>
   text("id")
@@ -133,7 +133,7 @@ export const posConnections = sqliteTable(
     orgId: text("org_id").notNull(),
     storeId: text("store_id").notNull(),
     system: text("system").notNull(),
-    /** toast_sftp | square_api | clover_api | email | csv */
+    /** toast_sftp | email | upload | manual (see shared/pos.ts) */
     method: text("method").notNull(),
     settings: text("settings", { mode: "json" }).$type<Record<string, string>>().notNull().default({}),
     /** Address the POS mails its nightly report to. */
@@ -159,7 +159,10 @@ export const posImports = sqliteTable(
     source: text("source").notNull(),
     status: text("status", { enum: ["ok", "partial", "failed", "missing"] }).notNull(),
     rows: integer("rows").notNull().default(0),
+    netSales: real("net_sales"),
     message: text("message").notNull().default(""),
+    /** The night in the shift report's own CSV, waiting for the closing manager to review and sign. */
+    payload: text("payload"),
     createdAt: createdAt(),
   },
   (t) => [index("pos_imports_store_idx").on(t.storeId, t.businessDate)],

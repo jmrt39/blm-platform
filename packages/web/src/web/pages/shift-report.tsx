@@ -9,6 +9,7 @@ import { Empty, Seg, Stat } from "../components/bits";
 import { SignaturePad, SignatureView, SignedStamp } from "../components/signature";
 import { StoreTabs } from "./checklists";
 import { useRoster, useShift, useShiftList, useSubmitShift } from "../queries/shifts";
+import { useStagedPos } from "../queries/pos";
 import { dayLabel, errMsg, money, money2, num, shortDay, timeOf } from "../lib/format";
 import { ROLE_LABEL } from "../../shared/domain";
 import { cn } from "../lib/utils";
@@ -343,6 +344,18 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
     setCsvMsg({ error: r.error, unmatched: r.unmatched });
     if (!r.error) setLines(r.lines);
   };
+  const today = v.me.today ?? new Date().toISOString().slice(0, 10);
+  const yesterday = prevDay(today);
+  const staged = useStagedPos(v.storeId, date, v.isManager);
+  const stagedPrev = useStagedPos(v.storeId, yesterday, v.isManager && date === today && staged.isFetched && !staged.data);
+  const [loaded, setLoaded] = useState<string | null>(null);
+  const pos = staged.data && !staged.data.signed ? { ...staged.data, date } : stagedPrev.data && !stagedPrev.data.signed ? { ...stagedPrev.data, date: yesterday } : null;
+  const loadPos = (p: NonNullable<typeof pos>) => {
+    if (p.date !== date) setDate(p.date);
+    setSource("csv");
+    importCsv(p.csv);
+    setLoaded(p.id);
+  };
 
   const send = async () => {
     const r = await submit
@@ -396,6 +409,24 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
             </div>
           )}
         </div>
+
+        {pos && loaded !== pos.id && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[2px] border border-gold/60 bg-gold/10 p-4">
+            <div className="text-[13.5px] leading-relaxed">
+              <span className="font-semibold">Figures from the POS arrived{pos.date !== date ? ` for ${shortDay(pos.date)}` : ""}</span>{" "}
+              <span className="text-ink-soft">
+                ({num(pos.rows)} people, {money(pos.netSales ?? 0)}). Load them, check each line, then sign.
+              </span>
+              {pos.message && <div className="text-[12px] text-ink-soft">{pos.message}</div>}
+            </div>
+            <button type="button" className="btn btn-ink !h-9" onClick={() => loadPos(pos)}>
+              Load them
+            </button>
+          </div>
+        )}
+        {pos && loaded === pos.id && (
+          <div className="mb-6 text-[12.5px] text-sage">POS figures loaded. Review each line, add comps and voids, then sign.</div>
+        )}
 
         {source === "csv" && (
           <div className="mb-6 rounded-[2px] border border-dashed border-ink-soft/40 p-5">
@@ -590,4 +621,10 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
       </aside>
     </div>
   );
+}
+
+function prevDay(date: string) {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }

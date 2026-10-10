@@ -35,6 +35,7 @@ import StudioApp from "./pages/studio";
 import { PrivacyPolicy, TermsOfService } from "./pages/legal";
 import { ResetPasswordPage, SetPasswordPage } from "./pages/password";
 import SecurityPage from "./pages/security";
+import PosPage from "./pages/pos";
 
 function Splash() {
   return (
@@ -126,6 +127,7 @@ function Routes() {
           <Route path="/logbook/:id" component={LogEntryPage} />
           <Route path="/slow" component={SlowNightPage} />
           <Route path="/security" component={SecurityPage} />
+          <Route path="/pos" component={PosPage} />
           <Route component={NotFound} />
         </Switch>
       </Shell>
