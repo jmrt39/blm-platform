@@ -10,12 +10,21 @@ export async function insertChunked<T extends Record<string, unknown>>(table: an
   }
 }
 
-export async function seedTemplates(storeId: string) {
+type Lines = { area: string; title: string }[];
+
+/** Opening and closing checklist templates for a new store, from the group's program (or the standard). */
+export async function seedTemplates(storeId: string, lists: { opening: Lines; closing: Lines } = { opening: DEFAULT_OPENING, closing: DEFAULT_CLOSING }) {
   const rows = [
-    ...DEFAULT_OPENING.map((l, i) => ({ storeId, type: "opening" as const, area: l.area, title: l.title, sort: i })),
-    ...DEFAULT_CLOSING.map((l, i) => ({ storeId, type: "closing" as const, area: l.area, title: l.title, sort: i })),
+    ...lists.opening.map((l, i) => ({ storeId, type: "opening" as const, area: l.area, title: l.title, sort: i })),
+    ...lists.closing.map((l, i) => ({ storeId, type: "closing" as const, area: l.area, title: l.title, sort: i })),
   ];
   await insertChunked(s.checklistTemplateItems, rows);
+}
+
+/** Swap a store's checklist templates for a newly published program. Today's lists already made are left alone. */
+export async function replaceTemplates(storeId: string, lists: { opening: Lines; closing: Lines }) {
+  await db.delete(s.checklistTemplateItems).where(eq(s.checklistTemplateItems.storeId, storeId));
+  await seedTemplates(storeId, lists);
 }
 
 /** Build the onboarding rows for a new colleague. */

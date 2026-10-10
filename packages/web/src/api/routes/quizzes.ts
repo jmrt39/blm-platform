@@ -6,34 +6,36 @@ import * as s from "../database/schema";
 import { assertStore, managerBase, viewerBase, type Viewer } from "../lib/access";
 import { selfMember } from "../lib/program-access";
 import { PASS_MARK, SELLERS, type Question } from "../../shared/program";
-import { QUIZZES, QUIZ_BY_SLUG, scoreQuiz } from "../../shared/library/quizzes";
-import { MODULE_BY_SLUG, modulesFor } from "../../shared/library/modules";
+import { scoreQuiz } from "../../shared/library/quizzes";
+import type { LibraryIndex } from "../../shared/library/standard";
+import { loadLibrary } from "../lib/library";
 import { isManagementRole } from "../../shared/domain";
 
-type QuizDef = { slug: string; title: string; level: "Core" | "Advanced" | "Update"; module: string | null; updateId: string | null; questions: Question[] };
+type QuizDef = {
+  slug: string;
+  title: string;
+  level: "Core" | "Advanced" | "Update";
+  kind: "knowledge" | "pos" | "update";
+  module: string | null;
+  updateId: string | null;
+  questions: Question[];
+};
 
 async function updatesFor(storeIds: string[], orgId: string) {
   const rows = await db.select().from(s.updates).where(eq(s.updates.orgId, orgId)).orderBy(desc(s.updates.publishedAt));
   return rows.filter((u) => u.quiz.length && u.storeIds.some((id) => storeIds.includes(id)));
 }
 
-async function loadQuiz(v: Viewer, slug: string): Promise<QuizDef> {
+async function loadQuiz(v: Viewer, lib: LibraryIndex, slug: string): Promise<QuizDef> {
   if (slug.startsWith("u:")) {
     const [u] = await db.select().from(s.updates).where(eq(s.updates.id, slug.slice(2)));
     if (!u || u.orgId !== v.orgId || !u.storeIds.some((id) => v.storeIds.includes(id)) || !u.quiz.length)
       throw new ORPCError("NOT_FOUND", { message: "Quiz not found." });
-    return { slug, title: u.title, level: "Update", module: null, updateId: u.id, questions: u.quiz };
+    return { slug, title: u.title, level: "Update", kind: "update", module: null, updateId: u.id, questions: u.quiz };
   }
-  const q = QUIZ_BY_SLUG[slug];
+  const q = lib.quizBySlug[slug];
   if (!q) throw new ORPCError("NOT_FOUND", { message: "Quiz not found." });
-  return { slug, title: q.title, level: q.level, module: q.module ?? null, updateId: null, questions: q.questions };
-}
-
-/** Library quizzes that apply to a role: its modules' checks, plus the advanced one for sellers. */
-function libraryFor(role: string | null) {
-  if (!role || isManagementRole(role)) return QUIZZES;
-  const mods = new Set(modulesFor(role).map((m) => m.quiz));
-  return QUIZZES.filter((q) => mods.has(q.slug) || (q.level === "Advanced" && SELLERS.includes(role)));
+  return { slug, title: q.title, level: q.level, kind: q.kind ?? "knowledge", module: q.module ?? null, updateId: null, questions: q.questions };
 }
 
 export const quizzes = {
@@ -44,12 +46,14 @@ export const quizzes = {
     for (const id of storeIds) assertStore(v, id);
     const me = v.member;
     const ups = await updatesFor(storeIds, v.orgId);
-    const lib = libraryFor(me?.role ?? null);
+    const lib = await loadLibrary(v.orgId);
+    const role = me?.role ?? null;
+    const mine = lib.quizzesFor(role, !role || isManagementRole(role), SELLERS);
     const defs: QuizDef[] = [
       ...ups
         .filter((u) => !me || !u.roles.length || u.roles.includes(me.role))
-        .map((u) => ({ slug: `u:${u.id}`, title: u.title, level: "Update" as const, module: null, updateId: u.id, questions: u.quiz })),
-      ...lib.map((q) => ({ slug: q.slug, title: q.title, level: q.level, module: q.module ?? null, updateId: null, questions: q.questions })),
+        .map((u) => ({ slug: `u:${u.id}`, title: u.title, level: "Update" as const, kind: "update" as const, module: null, updateId: u.id, questions: u.quiz })),
+      ...mine.map((q) => ({ slug: q.slug, title: q.title, level: q.level, kind: q.kind ?? ("knowledge" as const), module: q.module ?? null, updateId: null, questions: q.questions })),
     ];
     const attempts = me
       ? await db.select().from(s.quizAttempts).where(eq(s.quizAttempts.memberId, me.id))
@@ -64,8 +68,9 @@ export const quizzes = {
         slug: d.slug,
         title: d.title,
         level: d.level,
+        kind: d.kind,
         module: d.module,
-        moduleTitle: d.module ? (MODULE_BY_SLUG[d.module]?.title ?? null) : null,
+        moduleTitle: d.module ? (lib.moduleBySlug[d.module]?.title ?? null) : null,
         updateId: d.updateId,
         count: d.questions.length,
         attempts: mine.length,
@@ -81,13 +86,15 @@ export const quizzes = {
 
   /** Questions without answers, for taking the quiz. */
   get: viewerBase.input(z.object({ slug: z.string() })).handler(async ({ input, context }) => {
-    const d = await loadQuiz(context.viewer, input.slug);
+    const lib = await loadLibrary(context.viewer.orgId);
+    const d = await loadQuiz(context.viewer, lib, input.slug);
     return {
       slug: d.slug,
       title: d.title,
       level: d.level,
       module: d.module,
-      moduleTitle: d.module ? (MODULE_BY_SLUG[d.module]?.title ?? null) : null,
+      kind: d.kind,
+      moduleTitle: d.module ? (lib.moduleBySlug[d.module]?.title ?? null) : null,
       passMark: PASS_MARK,
       questions: d.questions.map((q) => ({ id: q.id, q: q.q, choices: q.choices })),
     };
@@ -98,7 +105,7 @@ export const quizzes = {
     .handler(async ({ input, context }) => {
       const v = context.viewer;
       const m = selfMember(v);
-      const d = await loadQuiz(v, input.slug);
+      const d = await loadQuiz(v, await loadLibrary(v.orgId), input.slug);
       const unanswered = d.questions.filter((q) => input.answers[q.id] == null).length;
       if (unanswered) throw new ORPCError("BAD_REQUEST", { message: `Answer every question (${unanswered} left).` });
       const score = scoreQuiz(d.questions, input.answers);
@@ -138,7 +145,8 @@ export const quizzes = {
       .orderBy(desc(s.quizAttempts.takenAt));
     const ups = await updatesFor([input.storeId], v.orgId);
     const qIndex = new Map<string, { quiz: string; title: string; q: Question }>();
-    for (const quiz of QUIZZES) for (const q of quiz.questions) qIndex.set(q.id, { quiz: quiz.slug, title: quiz.title, q });
+    const lib = await loadLibrary(v.orgId);
+    for (const quiz of lib.lib.quizzes) for (const q of quiz.questions) qIndex.set(q.id, { quiz: quiz.slug, title: quiz.title, q });
     for (const u of ups) for (const q of u.quiz) qIndex.set(q.id, { quiz: `u:${u.id}`, title: u.title, q });
     const miss = new Map<string, { right: number; n: number }>();
     for (const a of attempts)
@@ -165,7 +173,7 @@ export const quizzes = {
         memberId: a.memberId,
         memberName: a.memberName,
         quiz: a.quiz,
-        title: a.quiz.startsWith("u:") ? (ups.find((u) => `u:${u.id}` === a.quiz)?.title ?? "Update") : (QUIZ_BY_SLUG[a.quiz]?.title ?? a.quiz),
+        title: a.quiz.startsWith("u:") ? (ups.find((u) => `u:${u.id}` === a.quiz)?.title ?? "Update") : (lib.quizBySlug[a.quiz]?.title ?? a.quiz),
         score: a.score,
         passed: a.passed,
         takenAt: a.takenAt.getTime(),

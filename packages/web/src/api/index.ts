@@ -20,6 +20,9 @@ import { certs } from "./routes/certs";
 import { logbook } from "./routes/logbook";
 import { slow } from "./routes/slow";
 import { setup } from "./routes/setup";
+import { library } from "./routes/library";
+import { studio } from "./routes/studio";
+import { history } from "./routes/history";
 
 export const router = {
   ping,
@@ -41,6 +44,9 @@ export const router = {
   logbook,
   slow,
   setup,
+  library,
+  studio,
+  history,
 };
 
 export type AppRouter = typeof router;

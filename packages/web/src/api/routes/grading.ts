@@ -4,9 +4,11 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../database";
 import * as s from "../database/schema";
 import { assertStore, viewerBase } from "../lib/access";
-import { businessDate } from "../lib/time";
+import { businessDate, daysBetween } from "../lib/time";
 import { assertTrainer, loadMemberFor, TZ, viewerName } from "../lib/program-access";
-import { RUBRIC_BY_SLUG, gradeAverage } from "../../shared/library/rubrics";
+import { gradeAverage } from "../../shared/library/rubrics";
+import { loadLibrary } from "../lib/library";
+import { isManagementRole } from "../../shared/domain";
 
 const sig = z.string().min(10).max(20000);
 
@@ -30,7 +32,7 @@ export const grading = {
       assertTrainer(v);
       const m = await loadMemberFor(v, input.memberId);
       if (v.member?.id === m.id) throw new ORPCError("FORBIDDEN", { message: "You can't grade yourself." });
-      const r = RUBRIC_BY_SLUG[input.rubric];
+      const r = (await loadLibrary(v.orgId)).rubricBySlug[input.rubric];
       if (!r) throw new ORPCError("NOT_FOUND", { message: "Rubric not found." });
       const missing = r.criteria.filter((c) => !input.scores[c.key]);
       if (missing.length) throw new ORPCError("BAD_REQUEST", { message: `Score every competency: ${missing.map((c) => c.label).join(", ")}.` });
@@ -93,14 +95,46 @@ export const grading = {
     const v = context.viewer;
     assertTrainer(v);
     for (const id of input.storeIds) assertStore(v, id);
+    const r = (await loadLibrary(v.orgId)).floorRubric;
+    if (!r) return [];
     const rows = await db
       .select({ scores: s.grades.scores, storeId: s.grades.storeId })
       .from(s.grades)
-      .where(and(inArray(s.grades.storeId, input.storeIds), eq(s.grades.rubric, "floor-service")));
-    const r = RUBRIC_BY_SLUG["floor-service"]!;
+      .where(and(inArray(s.grades.storeId, input.storeIds), eq(s.grades.rubric, r.slug)));
     return r.criteria.map((c) => {
       const vals = rows.map((x) => x.scores[c.key]).filter((n): n is number => typeof n === "number");
       return { key: c.key, label: c.label, average: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null, n: vals.length };
     });
+  }),
+
+  /** Repeatable floor exercises that are due again: never graded, or last graded longer ago than the cadence. */
+  due: viewerBase.input(z.object({ storeId: z.string() })).handler(async ({ input, context }) => {
+    const v = context.viewer;
+    assertTrainer(v);
+    assertStore(v, input.storeId);
+    const lib = await loadLibrary(v.orgId);
+    const repeats = lib.lib.rubrics.filter((r) => r.repeat);
+    if (!repeats.length) return [];
+    const today = businessDate(TZ);
+    const [members, grades] = await Promise.all([
+      db.select().from(s.members).where(and(eq(s.members.storeId, input.storeId), eq(s.members.status, "active"))),
+      db
+        .select({ memberId: s.grades.memberId, rubric: s.grades.rubric, businessDate: s.grades.businessDate })
+        .from(s.grades)
+        .where(and(eq(s.grades.storeId, input.storeId), inArray(s.grades.rubric, repeats.map((r) => r.slug)))),
+    ]);
+    const out: { memberId: string; name: string; role: string; rubric: string; title: string; repeat: "weekly" | "monthly"; lastOn: string | null; daysSince: number | null }[] = [];
+    for (const m of members) {
+      if (isManagementRole(m.role)) continue;
+      for (const r of repeats) {
+        if (!r.roles.includes(m.role)) continue;
+        const last = grades.filter((g) => g.memberId === m.id && g.rubric === r.slug).map((g) => g.businessDate).sort().pop() ?? null;
+        const since = last ? daysBetween(last, today) : null;
+        const every = r.repeat === "weekly" ? 7 : 30;
+        if (since == null || since >= every)
+          out.push({ memberId: m.id, name: m.name, role: m.role, rubric: r.slug, title: r.title, repeat: r.repeat!, lastOn: last, daysSince: since });
+      }
+    }
+    return out.sort((a, b) => (b.daysSince ?? 9999) - (a.daysSince ?? 9999));
   }),
 };

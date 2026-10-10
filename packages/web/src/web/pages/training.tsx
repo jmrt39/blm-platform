@@ -8,9 +8,8 @@ import { SignaturePad, SignatureView, SignedStamp } from "../components/signatur
 import { ModuleBody, ModuleChip, RampChip, ScoreChip, SectionTitle, Stars } from "../components/program-bits";
 import { StoreTabs } from "./checklists";
 import { useMarkModuleRead, useSignOffModule, useTrainingBoard, useTrainingMember, useTrainingModule } from "../queries/training";
-import { MODULES, MODULE_BY_SLUG } from "../../shared/library/modules";
-import { RUBRIC_BY_SLUG } from "../../shared/library/rubrics";
-import { QUIZ_BY_SLUG } from "../../shared/library/quizzes";
+import { useLibrary } from "../queries/library";
+import { useGradingDue } from "../queries/grading";
 import { ROLE_LABEL } from "../../shared/domain";
 import { errMsg, pct, shortDay } from "../lib/format";
 import { cn } from "../lib/utils";
@@ -25,9 +24,10 @@ export default function TrainingPage() {
   const canTrain = useCanTrain();
   const [tab, setTab] = useState<"board" | "mine">(canTrain ? "board" : "mine");
   const hasOwn = !!v.me.member && v.me.level === "staff";
+  const L = useLibrary();
   return (
     <Page
-      eyebrow={`${v.store?.name} · The 1906 program`}
+      eyebrow={`${v.store?.name} · ${L.lib.version ? L.lib.label : "The 1906 program"}`}
       title="Training"
       aside={
         canTrain && (
@@ -49,7 +49,9 @@ export default function TrainingPage() {
 
 function Board() {
   const v = useViewer();
+  const L = useLibrary();
   const q = useTrainingBoard(v.storeId);
+  const due = useGradingDue(v.storeId);
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorNote error={q.error} />;
   const d = q.data!;
@@ -76,13 +78,36 @@ function Board() {
                 <div>
                   <div className="text-[14px] font-semibold">{r.name}</div>
                   <div className="text-[12px] text-ink-soft">
-                    {MODULE_BY_SLUG[r.slug]?.n}. {MODULE_BY_SLUG[r.slug]?.title} · {ROLE_LABEL[r.role]}
+                    {L.moduleBySlug[r.slug]?.n}. {L.moduleBySlug[r.slug]?.title} · {ROLE_LABEL[r.role]}
                   </div>
                 </div>
                 <span className="chip border-gold-deep/60 bg-gold/15 text-gold-deep">Sign off →</span>
               </Link>
             ))}
           </div>
+        </div>
+      )}
+
+      {!!due.data?.length && (
+        <div className="mb-10">
+          <SectionTitle aside={<span className="text-[12px] text-ink-soft">Repeatable drills, graded again on their cadence</span>}>
+            Due for a repeat
+          </SectionTitle>
+          <div className="grid gap-2 md:grid-cols-3">
+            {due.data.slice(0, 9).map((r) => (
+              <Link
+                key={r.memberId + r.rubric}
+                href={`/grading/new?member=${r.memberId}&rubric=${r.rubric}`}
+                className="rounded-[2px] border rule px-4 py-3 hover:border-ink"
+              >
+                <div className="text-[14px] font-semibold">{r.name}</div>
+                <div className="text-[12px] text-ink-soft">
+                  {r.title} · {r.repeat === "weekly" ? "weekly" : "monthly"} · {r.lastOn ? `last ${shortDay(r.lastOn)}` : "never graded"}
+                </div>
+              </Link>
+            ))}
+          </div>
+          {due.data.length > 9 && <div className="mt-2 text-[12px] text-ink-soft">and {due.data.length - 9} more</div>}
         </div>
       )}
 
@@ -156,7 +181,7 @@ function Board() {
                 <div>
                   <div className="text-[14px] font-semibold">{g.memberName}</div>
                   <div className="text-[12px] text-ink-soft">
-                    {RUBRIC_BY_SLUG[g.rubric]?.title} · {shortDay(g.businessDate)} · by {g.graderName}
+                    {L.rubricBySlug[g.rubric]?.title} · {shortDay(g.businessDate)} · by {g.graderName}
                   </div>
                 </div>
                 <div className="text-right">
@@ -176,6 +201,7 @@ function Board() {
 
 /** A colleague's own module list. Also used on the profile. */
 export function TrainingRecord({ memberId }: { memberId: string | null }) {
+  const L = useLibrary();
   const q = useTrainingMember(memberId);
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorNote error={q.error} />;
@@ -183,7 +209,7 @@ export function TrainingRecord({ memberId }: { memberId: string | null }) {
   const p = d.program;
   const byCat = new Map<string, typeof p.modules>();
   for (const m of p.modules) {
-    const cat = MODULE_BY_SLUG[m.slug]?.category ?? "House";
+    const cat = L.moduleBySlug[m.slug]?.category ?? "House";
     byCat.set(cat, [...(byCat.get(cat) ?? []), m]);
   }
   const memberQ = memberId ? `?member=${memberId}` : "";
@@ -200,7 +226,8 @@ export function TrainingRecord({ memberId }: { memberId: string | null }) {
           <div className="eyebrow mb-3">{cat}</div>
           <div className="grid gap-2 md:grid-cols-2">
             {mods.map((m) => {
-              const mod = MODULE_BY_SLUG[m.slug]!;
+              const mod = L.moduleBySlug[m.slug];
+              if (!mod) return null;
               return (
                 <Link key={m.slug} href={`/training/${m.slug}${memberQ}`} className="group rounded-[2px] border rule px-4 py-3.5 hover:border-ink">
                   <div className="flex items-start justify-between gap-3">
@@ -237,12 +264,13 @@ export function TrainingRecord({ memberId }: { memberId: string | null }) {
 
 function MyTraining() {
   const v = useViewer();
+  const L = useLibrary();
   if (!v.me.member)
     return (
       <Empty>
         Your own training record shows once you sign in with your PIN. Use View as to preview a server.
         <div className="mt-4 grid gap-2 text-left md:grid-cols-2">
-          {MODULES.map((m) => (
+          {L.lib.modules.map((m) => (
             <Link key={m.slug} href={`/training/${m.slug}`} className="rounded-[2px] border rule px-3 py-2 text-[13px] hover:border-ink">
               <span className="figure mr-2 text-gold-deep">{m.n}</span>
               {m.title}
@@ -258,7 +286,8 @@ export function ModulePage() {
   const { slug } = useParams<{ slug: string }>();
   const search = new URLSearchParams(useSearch());
   const memberId = search.get("member");
-  const mod = MODULE_BY_SLUG[slug];
+  const L = useLibrary();
+  const mod = L.moduleBySlug[slug];
   const q = useTrainingModule(slug, memberId);
   const read = useMarkModuleRead();
   const sign = useSignOffModule();
@@ -268,8 +297,8 @@ export function ModulePage() {
   if (!mod) return <Page title="Module not found">{null}</Page>;
   const d = q.data;
   const state = d?.state;
-  const rubric = mod.rubric ? RUBRIC_BY_SLUG[mod.rubric] : null;
-  const quiz = mod.quiz ? QUIZ_BY_SLUG[mod.quiz] : null;
+  const rubric = mod.rubric ? L.rubricBySlug[mod.rubric] : null;
+  const quiz = mod.quiz ? L.quizBySlug[mod.quiz] : null;
   return (
     <Page
       eyebrow={

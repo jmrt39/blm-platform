@@ -595,3 +595,122 @@ export const slowNightActions = sqliteTable(
   },
   (t) => [index("slow_store_idx").on(t.storeId, t.businessDate), index("slow_member_idx").on(t.memberId)],
 );
+
+/* ───────────────────────── Implementation Studio (BLM staff only) ───────────────────────── */
+
+/** BLM people who can open the Studio. A row is added when someone enters the studio code once. */
+export const studioStaff = sqliteTable(
+  "studio_staff",
+  {
+    id: id(),
+    userId: text("user_id").notNull(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("studio_staff_user_uq").on(t.userId)],
+);
+
+export type StudioBrief = {
+  findings: string;
+  priorities: { title: string; detail: string; weight: "high" | "medium" | "low" }[];
+  preferences: string;
+  reputation: string;
+  standards: string;
+  storeTargets: { storeId: string; ticketTarget: number }[];
+};
+
+/** One client's build: the audit brief, what BLM collected, and where it is in the process. */
+export const implementations = sqliteTable(
+  "implementations",
+  {
+    id: id(),
+    orgId: text("org_id").notNull(),
+    status: text("status", { enum: ["brief", "materials", "history", "build", "published"] })
+      .notNull()
+      .default("brief"),
+    brief: text("brief", { mode: "json" }).$type<StudioBrief>().notNull(),
+    createdByName: text("created_by_name").notNull(),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [uniqueIndex("impl_org_uq").on(t.orgId)],
+);
+
+/** Material handed over by the client: menus, wine lists, steps of service, protocols. */
+export const studioSources = sqliteTable(
+  "studio_sources",
+  {
+    id: id(),
+    implId: text("impl_id").notNull(),
+    kind: text("kind", {
+      enum: ["menu", "wine", "bar", "steps_of_service", "standards", "protocols", "pos", "other"],
+    }).notNull(),
+    title: text("title").notNull(),
+    text: text("text").notNull().default(""),
+    fileName: text("file_name"),
+    /** What the AI pulled out of it, kept so drafting can cite it. */
+    extracted: text("extracted", { mode: "json" }).$type<Record<string, unknown> | null>(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("studio_sources_impl_idx").on(t.implId)],
+);
+
+/** One piece of the client's program in progress. Starts as a copy of the standard; AI or BLM reshapes it. */
+export const contentItems = sqliteTable(
+  "content_items",
+  {
+    id: id(),
+    implId: text("impl_id").notNull(),
+    type: text("type", { enum: ["module", "quiz", "rubric", "reward", "checklist", "talking_points"] }).notNull(),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    data: text("data", { mode: "json" }).$type<unknown>().notNull(),
+    origin: text("origin", { enum: ["standard", "ai", "edited"] }).notNull().default("standard"),
+    status: text("status", { enum: ["draft", "approved", "excluded"] }).notNull().default("draft"),
+    note: text("note").notNull().default(""),
+    /** Background AI drafting: queued and working items are being rewritten right now. */
+    aiState: text("ai_state", { enum: ["idle", "queued", "working", "failed"] }).notNull().default("idle"),
+    aiError: text("ai_error"),
+    /** What the reviewer asked the AI to change on the next draft. */
+    ask: text("ask").notNull().default(""),
+    approvedByName: text("approved_by_name"),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("content_items_uq").on(t.implId, t.type, t.slug), index("content_items_impl_idx").on(t.implId)],
+);
+
+/** The published program a client's platform runs on. No row means the BLM standard program. */
+export const orgPrograms = sqliteTable(
+  "org_programs",
+  {
+    id: id(),
+    orgId: text("org_id").notNull(),
+    version: integer("version").notNull(),
+    data: text("data", { mode: "json" }).$type<unknown>().notNull(),
+    publishedAt: integer("published_at", { mode: "timestamp_ms" }).notNull(),
+    publishedByName: text("published_by_name").notNull(),
+  },
+  (t) => [uniqueIndex("org_programs_org_uq").on(t.orgId)],
+);
+
+/** A full previous year of daily totals per store, so the platform can show this day last year. */
+export const historyDays = sqliteTable(
+  "history_days",
+  {
+    id: id(),
+    orgId: text("org_id").notNull(),
+    storeId: text("store_id").notNull(),
+    date: text("date").notNull(),
+    netSales: real("net_sales").notNull(),
+    tickets: integer("tickets").notNull(),
+    covers: integer("covers").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("history_days_uq").on(t.storeId, t.date)],
+);

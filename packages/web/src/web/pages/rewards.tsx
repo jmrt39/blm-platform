@@ -7,7 +7,9 @@ import { Empty } from "../components/bits";
 import { SectionTitle } from "../components/program-bits";
 import { StoreTabs } from "./checklists";
 import { useAwardReward, useRevokeReward, useRewards } from "../queries/rewards";
-import { REWARD_BY_KEY } from "../../shared/library/rewards";
+import { useLibrary } from "../queries/library";
+
+const COUNT_WORD = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight"];
 import { ROLE_LABEL } from "../../shared/domain";
 import { errMsg, money } from "../lib/format";
 import { cn } from "../lib/utils";
@@ -18,8 +20,10 @@ export default function RewardsPage() {
   const award = useAwardReward();
   const revoke = useRevokeReward();
   const [open, setOpen] = useState<string | null>(null);
+  const L = useLibrary();
+  const n = L.lib.rewards.length;
   return (
-    <Page eyebrow={`${v.store?.name} · Recognition & rewards`} title="The eight rewards">
+    <Page eyebrow={`${v.store?.name} · Recognition & rewards`} title={`The ${COUNT_WORD[n] ?? n} rewards`}>
       <StoreTabs />
       {q.isLoading ? (
         <Loading />
@@ -34,7 +38,8 @@ export default function RewardsPage() {
           {award.error && <div className="mb-4 text-[13px] text-oxblood">{errMsg(award.error)}</div>}
           <div className="grid gap-5 lg:grid-cols-2">
             {q.data!.boards.map((b) => {
-              const r = REWARD_BY_KEY[b.key];
+              const r = L.rewardByKey[b.key];
+              if (!r) return null;
               const elig = b.entries.filter((e) => e.eligible);
               const others = b.entries.filter((e) => !e.eligible).slice(0, open === b.key ? 20 : 3);
               return (
@@ -119,7 +124,7 @@ export default function RewardsPage() {
                   {q.data!.history.map((h) => (
                     <tr key={h.id}>
                       <td className="font-semibold">{h.memberName}</td>
-                      <td>{REWARD_BY_KEY[h.reward as keyof typeof REWARD_BY_KEY]?.title}</td>
+                      <td>{L.rewardByKey[h.reward]?.title ?? h.reward}</td>
                       <td className="text-ink-soft">{h.period}</td>
                       <td className="r">{h.amount ? money(h.amount) : ""}</td>
                       <td className="r text-[12px] text-ink-soft">

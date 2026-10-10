@@ -7,7 +7,7 @@ import { loadStore, viewerBase } from "../lib/access";
 import { businessDate, daysBetween } from "../lib/time";
 import { certsFor, programFor } from "../lib/program";
 import { assertTrainer, canTrain, loadMemberFor, selfMember, TZ, viewerName } from "../lib/program-access";
-import { MODULE_BY_SLUG } from "../../shared/library/modules";
+import { loadLibrary } from "../lib/library";
 import { isManagementRole } from "../../shared/domain";
 
 const sig = z.string().min(10).max(20000);
@@ -24,7 +24,8 @@ export const training = {
     )
       .filter((m) => !isManagementRole(m.role))
       .sort((a, b) => a.name.localeCompare(b.name));
-    const [program, certs] = await Promise.all([programFor(members), certsFor(members, today)]);
+    const lib = await loadLibrary(v.orgId);
+    const [program, certs] = await Promise.all([programFor(lib, members), certsFor(members, today)]);
     const grades = await db
       .select()
       .from(s.grades)
@@ -61,7 +62,8 @@ export const training = {
     const v = context.viewer;
     const m = input.id ? await loadMemberFor(v, input.id) : selfMember(v);
     const today = businessDate(TZ);
-    const [program, certs] = await Promise.all([programFor([m]), certsFor([m], today)]);
+    const lib = await loadLibrary(v.orgId);
+    const [program, certs] = await Promise.all([programFor(lib, [m]), certsFor([m], today)]);
     const grades = await db.select().from(s.grades).where(eq(s.grades.memberId, m.id)).orderBy(desc(s.grades.approvedAt));
     const attempts = await db
       .select({ id: s.quizAttempts.id, quiz: s.quizAttempts.quiz, score: s.quizAttempts.score, correct: s.quizAttempts.correct, total: s.quizAttempts.total, passed: s.quizAttempts.passed, takenAt: s.quizAttempts.takenAt })
@@ -82,11 +84,12 @@ export const training = {
   /** A module's progress for one person (defaults to self), with the sign-off record. */
   module: viewerBase.input(z.object({ slug: z.string(), memberId: z.string().nullish() })).handler(async ({ input, context }) => {
     const v = context.viewer;
-    const mod = MODULE_BY_SLUG[input.slug];
+    const lib = await loadLibrary(v.orgId);
+    const mod = lib.moduleBySlug[input.slug];
     if (!mod) throw new ORPCError("NOT_FOUND", { message: "Module not found." });
     const m = input.memberId ? await loadMemberFor(v, input.memberId) : (v.member ?? null);
     if (!m) return { member: null, state: null, progress: null, grades: [], attempts: [], canTrain: canTrain(v), isSelf: false };
-    const program = (await programFor([m])).get(m.id)!;
+    const program = (await programFor(lib, [m])).get(m.id)!;
     const state = program.modules.find((x) => x.slug === mod.slug) ?? null;
     const [progress] = await db
       .select()
@@ -119,7 +122,7 @@ export const training = {
 
   markRead: viewerBase.input(z.object({ slug: z.string() })).handler(async ({ input, context }) => {
     const m = selfMember(context.viewer);
-    if (!MODULE_BY_SLUG[input.slug]) throw new ORPCError("NOT_FOUND");
+    if (!(await loadLibrary(m.orgId)).moduleBySlug[input.slug]) throw new ORPCError("NOT_FOUND");
     const [p] = await db
       .select()
       .from(s.trainingProgress)
@@ -139,9 +142,10 @@ export const training = {
       assertTrainer(v);
       const m = await loadMemberFor(v, input.memberId);
       if (v.member?.id === m.id) throw new ORPCError("FORBIDDEN", { message: "You can't sign off your own training." });
-      const mod = MODULE_BY_SLUG[input.slug];
+      const lib = await loadLibrary(v.orgId);
+      const mod = lib.moduleBySlug[input.slug];
       if (!mod) throw new ORPCError("NOT_FOUND");
-      const state = (await programFor([m])).get(m.id)?.modules.find((x) => x.slug === mod.slug);
+      const state = (await programFor(lib, [m])).get(m.id)?.modules.find((x) => x.slug === mod.slug);
       if (!state) throw new ORPCError("BAD_REQUEST", { message: "This module isn't part of their role." });
       if (state.status === "signed_off") throw new ORPCError("BAD_REQUEST", { message: "Already signed off." });
       if (state.status !== "ready") throw new ORPCError("BAD_REQUEST", { message: `Not ready yet: ${state.needs.join("; ")}.` });

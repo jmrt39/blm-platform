@@ -6,6 +6,8 @@ import { assertStore, managerBase } from "../lib/access";
 import { ensureChecklists } from "../lib/core";
 import { addDays, businessDate, opensAtFor } from "../lib/time";
 import { certsFor } from "../lib/program";
+import { lastYearCompare, onThisDay } from "../lib/history";
+import { loadLibrary } from "../lib/library";
 
 const FLOOR = new Set(["server", "sommelier"]);
 /** Servers inside their first 30 days are ramping — never ranked against veterans. */
@@ -305,6 +307,12 @@ export const reports = {
     const night = await compute(ids, lastNight, lastNight);
     const prior = await compute(ids, addDays(lastNight, -7), addDays(lastNight, -1));
     const month = await compute(ids, addDays(today, -30), today);
+    const [lyNight, lyMonth, lyToday, lib] = await Promise.all([
+      lastYearCompare(ids, lastNight, lastNight),
+      lastYearCompare(ids, addDays(today, -30), today),
+      onThisDay(ids, today),
+      loadLibrary(context.viewer.orgId),
+    ]);
 
     // What to do next — one row per action, each pointing at the exact record.
     type Action = { priority: 1 | 2 | 3; kind: string; text: string; detail: string; href: string; cta: string };
@@ -342,7 +350,7 @@ export const reports = {
           kind: "coaching",
           text: `Coach ${p.name} (${st.name})`,
           detail: `Spend per ticket $${p.spt.toFixed(2)} over ${p.shifts} shifts · ${p.tenureDays ?? "?"} days in · schedule a graded floor exercise`,
-          href: `/grading/new?member=${p.memberId}&rubric=floor-service`,
+          href: `/grading/new?member=${p.memberId}&rubric=${lib.floorRubric?.slug ?? "floor-service"}`,
           cta: "Grade a table",
         });
       }
@@ -445,6 +453,7 @@ export const reports = {
       todayLists,
       actions,
       newHires,
+      lastYear: { night: lyNight, month: lyMonth, today: lyToday },
       headcount: members.length,
     };
   }),
@@ -461,6 +470,7 @@ export const reports = {
       const from = addDays(to, -(input.days - 1));
       const cur = await compute(ids, from, to);
       const prev = await compute(ids, addDays(from, -input.days), addDays(from, -1));
-      return { ...cur, previous: prev.totals, comparable: prev.totals.nights >= cur.totals.nights * 0.9, combined: !input.storeId };
+      const lastYear = await lastYearCompare(ids, from, to);
+      return { ...cur, previous: prev.totals, comparable: prev.totals.nights >= cur.totals.nights * 0.9, combined: !input.storeId, lastYear };
     }),
 };

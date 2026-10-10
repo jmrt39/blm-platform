@@ -8,6 +8,7 @@ import { businessDate } from "../lib/time";
 import { rewardsBoard } from "../lib/program";
 import { viewerName } from "../lib/program-access";
 import { REWARD_KEYS } from "../../shared/library/rewards";
+import { loadLibrary } from "../lib/library";
 
 export const rewards = {
   /** The eight incentives, with who is eligible or leading for each this period. */
@@ -15,7 +16,7 @@ export const rewards = {
     const v = context.viewer;
     const store = await loadStore(v, input.storeId);
     const today = businessDate(store.timezone);
-    const boards = await rewardsBoard(store, today);
+    const boards = await rewardsBoard(await loadLibrary(v.orgId), store, today);
     const history = await db
       .select()
       .from(s.rewardAwards)

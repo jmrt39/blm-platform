@@ -6,6 +6,7 @@ export const STAR_LABELS = ["", "Not yet", "Needs coaching", "Meets standard", "
 export const RUBRICS: Rubric[] = [
   {
     slug: "floor-service",
+    repeat: "monthly",
     title: "Floor grade · full turn",
     kind: "floor",
     summary: "A trainer or manager follows one full table turn and grades the six competencies.",

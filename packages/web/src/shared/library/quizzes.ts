@@ -25,7 +25,7 @@ function hash(s: string) {
   return h >>> 0;
 }
 
-export const QUIZZES: Quiz[] = [
+const BASE: Quiz[] = [
   quiz("q-standard", "The 1906 Standard", "the-1906-standard", "Core", [
     ["A guest asks where the restroom is. What do you do?", ["Point to the hallway past the bar", "Tell them it is past the bar on the left", "Walk them there", "Ask a host to point it out"], 2, "“Walk it, don't point it.”"],
     ["A guest thanks you for refilling their water. The house reply is…", ["“No problem.”", "“My pleasure.”", "“You got it.”", "“Of course, no worries.”"], 1, "Never ‘no problem’ — always ‘my pleasure’."],
@@ -207,6 +207,8 @@ export const QUIZZES: Quiz[] = [
     ["Guests order a bottle of Côte-Rôtie. Its grape is…", ["Grenache", "Syrah with a little Viognier", "Merlot", "Nebbiolo"], 1, "Northern Rhône Syrah co-fermented with Viognier."],
   ]),
 ];
+
+export const QUIZZES: Quiz[] = BASE.map((q) => (q.slug === "q-pos" ? { ...q, kind: "pos" as const } : q));
 
 export const QUIZ_BY_SLUG = Object.fromEntries(QUIZZES.map((q) => [q.slug, q])) as Record<string, Quiz>;
 

@@ -10,6 +10,9 @@ export function useGrade(id: string) {
 export function useCompetencies(storeIds: string[], enabled = true) {
   return useQuery({ ...orpc.grading.competencies.queryOptions({ input: { storeIds } }), enabled: enabled && storeIds.length > 0 });
 }
+export function useGradingDue(storeId: string | null) {
+  return useQuery({ ...orpc.grading.due.queryOptions({ input: { storeId: storeId ?? "" } }), enabled: !!storeId });
+}
 export function useCreateGrade() {
   const qc = useQueryClient();
   return useMutation(

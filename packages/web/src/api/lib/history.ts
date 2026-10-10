@@ -1,0 +1,80 @@
+// Last year's daily totals, handed over before launch, compared like for like with this year's shift reports.
+import { and, gte, inArray, lte } from "drizzle-orm";
+import { db } from "../database";
+import * as s from "../database/schema";
+import { addDays } from "./time";
+
+/** Same weekday, 52 weeks back. */
+export const LY_OFFSET = 364;
+export const lyDate = (date: string) => addDays(date, -LY_OFFSET);
+
+type Day = { sales: number; tickets: number; covers: number };
+const sum = (xs: Day[]) => xs.reduce((a, x) => ({ sales: a.sales + x.sales, tickets: a.tickets + x.tickets, covers: a.covers + x.covers }), { sales: 0, tickets: 0, covers: 0 });
+const spt = (d: Day) => (d.tickets ? Math.round((d.sales / d.tickets) * 100) / 100 : 0);
+const change = (a: number, b: number) => (b ? a / b - 1 : null);
+
+async function lastYearDays(storeIds: string[], from: string, to: string) {
+  if (!storeIds.length) return [];
+  return db
+    .select()
+    .from(s.historyDays)
+    .where(and(inArray(s.historyDays.storeId, storeIds), gte(s.historyDays.date, lyDate(from)), lte(s.historyDays.date, lyDate(to))));
+}
+
+/**
+ * This period against the same period last year. Only store days present in both years count,
+ * so a missing report or a gap in the history never skews the comparison.
+ */
+export async function lastYearCompare(storeIds: string[], from: string, to: string) {
+  const [ly, ty] = await Promise.all([
+    lastYearDays(storeIds, from, to),
+    db
+      .select({ storeId: s.shiftReports.storeId, date: s.shiftReports.businessDate, sales: s.shiftReports.netSales, tickets: s.shiftReports.checks, covers: s.shiftReports.covers })
+      .from(s.shiftReports)
+      .where(and(inArray(s.shiftReports.storeId, storeIds), gte(s.shiftReports.businessDate, from), lte(s.shiftReports.businessDate, to))),
+  ]);
+  if (!ly.length) return null;
+  const lyBy = new Map(ly.map((d) => [`${d.storeId}:${d.date}`, { sales: d.netSales, tickets: d.tickets, covers: d.covers }]));
+  const thisYear: Day[] = [];
+  const lastYear: Day[] = [];
+  for (const r of ty) {
+    const hit = lyBy.get(`${r.storeId}:${lyDate(r.date)}`);
+    if (!hit) continue;
+    thisYear.push(r);
+    lastYear.push(hit);
+  }
+  if (!thisYear.length) return null;
+  const a = sum(thisYear);
+  const b = sum(lastYear);
+  return {
+    days: thisYear.length,
+    thisYear: { ...a, spt: spt(a) },
+    lastYear: { ...b, spt: spt(b) },
+    salesChange: change(a.sales, b.sales),
+    ticketsChange: change(a.tickets, b.tickets),
+    sptChange: change(spt(a), spt(b)),
+  };
+}
+
+/** What these stores did on this day last year: the night ahead's best forecast. */
+export async function onThisDay(storeIds: string[], date: string) {
+  const rows = await lastYearDays(storeIds, date, date);
+  if (!rows.length) return null;
+  const t = sum(rows.map((d) => ({ sales: d.netSales, tickets: d.tickets, covers: d.covers })));
+  return { date: lyDate(date), stores: rows.length, ...t, spt: spt(t) };
+}
+
+/** How much history each store has, for the Studio and the setup checklist. */
+export async function historyCoverage(storeIds: string[]) {
+  if (!storeIds.length) return new Map<string, { days: number; from: string | null; to: string | null }>();
+  const rows = await db
+    .select({ storeId: s.historyDays.storeId, date: s.historyDays.date })
+    .from(s.historyDays)
+    .where(inArray(s.historyDays.storeId, storeIds));
+  const out = new Map<string, { days: number; from: string | null; to: string | null }>();
+  for (const id of storeIds) {
+    const ds = rows.filter((r) => r.storeId === id).map((r) => r.date).sort();
+    out.set(id, { days: ds.length, from: ds[0] ?? null, to: ds[ds.length - 1] ?? null });
+  }
+  return out;
+}

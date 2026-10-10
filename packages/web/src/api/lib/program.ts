@@ -5,8 +5,8 @@ import * as s from "../database/schema";
 import { addDays, daysBetween } from "./time";
 import { computeRatings } from "./conduct";
 import { adsBonus, CERT_KINDS, GRADE_PASS, moduleNeeds, monthOf, quarterOf, requiredCerts, type CertKind, type ModuleStatus } from "../../shared/program";
-import { MODULES, modulesFor } from "../../shared/library/modules";
-import { REWARDS, type RewardKey } from "../../shared/library/rewards";
+import type { RewardKey } from "../../shared/library/rewards";
+import type { LibraryIndex } from "../../shared/library/standard";
 import { isManagementRole } from "../../shared/domain";
 import { targetForRole } from "../../shared/metrics";
 
@@ -40,7 +40,7 @@ async function chunked<T>(ids: string[], f: (slice: string[]) => Promise<T[]>) {
 }
 
 /** Required modules and where each person stands. Managers aren't tracked against modules. */
-export async function programFor(members: Pick<Member, "id" | "role">[]) {
+export async function programFor(lib: LibraryIndex, members: Pick<Member, "id" | "role">[]) {
   const out = new Map<string, ProgramSummary>();
   const ids = members.map((m) => m.id);
   if (!ids.length) return out;
@@ -60,7 +60,7 @@ export async function programFor(members: Pick<Member, "id" | "role">[]) {
     ),
   ]);
   for (const m of members) {
-    const mods = isManagementRole(m.role) ? [] : modulesFor(m.role);
+    const mods = isManagementRole(m.role) ? [] : lib.modulesFor(m.role);
     const mine = progress.filter((p) => p.memberId === m.id);
     const myQ = attempts.filter((a) => a.memberId === m.id);
     const myG = grades.filter((g) => g.memberId === m.id);
@@ -82,7 +82,7 @@ export async function programFor(members: Pick<Member, "id" | "role">[]) {
         signedOffByName: p?.signedOffByName ?? null,
       };
     });
-    const floor = myG.filter((g) => g.rubric === "floor-service").sort((a, b) => b.businessDate.localeCompare(a.businessDate));
+    const floor = myG.filter((g) => g.rubric === (lib.floorRubric?.slug ?? "floor-service")).sort((a, b) => b.businessDate.localeCompare(a.businessDate));
     const done = states.filter((x) => x.status === "signed_off").length;
     out.set(m.id, {
       modules: states,
@@ -197,7 +197,7 @@ const targetFor = targetForRole;
 const ads = (p?: { sales: number; checks: number }) => (p && p.checks ? p.sales / p.checks : null);
 
 /** Who is eligible — or leading — for each of the eight rewards at one store. */
-export async function rewardsBoard(store: typeof s.stores.$inferSelect, today: string): Promise<RewardBoard[]> {
+export async function rewardsBoard(lib: LibraryIndex, store: typeof s.stores.$inferSelect, today: string): Promise<RewardBoard[]> {
   const members = (
     await db.select().from(s.members).where(and(eq(s.members.storeId, store.id), eq(s.members.status, "active")))
   ).filter((m) => !isManagementRole(m.role));
@@ -211,8 +211,8 @@ export async function rewardsBoard(store: typeof s.stores.$inferSelect, today: s
     salesBy(store.id, lastMonth.start, addDays(month.start, -1)),
     salesBy(store.id, month.start, today),
     db.select().from(s.guestFeedback).where(and(eq(s.guestFeedback.storeId, store.id), gte(s.guestFeedback.receivedOn, q.start < lastMonth.start ? q.start : lastMonth.start))),
-    db.select().from(s.grades).where(and(eq(s.grades.storeId, store.id), eq(s.grades.rubric, "floor-service"), gte(s.grades.businessDate, q.start))),
-    programFor(members),
+    db.select().from(s.grades).where(and(eq(s.grades.storeId, store.id), eq(s.grades.rubric, lib.floorRubric?.slug ?? "floor-service"), gte(s.grades.businessDate, q.start))),
+    programFor(lib, members),
     computeRatings([store.id]),
     db.select().from(s.rewardAwards).where(eq(s.rewardAwards.storeId, store.id)),
     db
@@ -358,8 +358,6 @@ export async function rewardsBoard(store: typeof s.stores.$inferSelect, today: s
     peer_dinner: board("peer_dinner", q, peer),
     winery_visit: board("winery_visit", year, top),
   };
-  return REWARDS.map((r) => boards[r.key]);
+  return lib.lib.rewards.map((r) => boards[r.key]).filter(Boolean);
 }
-
-export const LIBRARY_COUNT = MODULES.length;
 export { GRADE_PASS };

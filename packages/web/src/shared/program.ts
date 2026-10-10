@@ -39,6 +39,8 @@ export type Rubric = {
   module: string;
   roles: string[];
   criteria: Criterion[];
+  /** Repeatable drill: graded again on this cadence even after the module is signed off. */
+  repeat?: "weekly" | "monthly";
 };
 
 export type Question = { id: string; q: string; choices: string[]; answer: number; why: string };
@@ -47,6 +49,8 @@ export type Quiz = {
   title: string;
   module?: string;
   level: "Core" | "Advanced";
+  /** POS knowledge checks are listed separately from menu and service quizzes. */
+  kind?: "knowledge" | "pos";
   questions: Question[];
 };
 

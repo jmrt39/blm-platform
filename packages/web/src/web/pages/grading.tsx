@@ -8,8 +8,8 @@ import { SignaturePad, SignatureView, SignedStamp } from "../components/signatur
 import { RampChip, StarInput, Stars } from "../components/program-bits";
 import { useTrainingBoard } from "../queries/training";
 import { useCreateGrade, useGrade } from "../queries/grading";
-import { RUBRIC_BY_SLUG, STAR_LABELS, gradeAverage, rubricsFor } from "../../shared/library/rubrics";
-import { MODULE_BY_SLUG } from "../../shared/library/modules";
+import { STAR_LABELS, gradeAverage } from "../../shared/library/rubrics";
+import { useLibrary } from "../queries/library";
 import { GRADE_PASS } from "../../shared/program";
 import { ROLE_LABEL } from "../../shared/domain";
 import { errMsg, shortDay } from "../lib/format";
@@ -29,13 +29,15 @@ export function GradeNewPage() {
   const [graderSig, setGraderSig] = useState("");
   const [traineeSig, setTraineeSig] = useState("");
   const create = useCreateGrade();
+  const L = useLibrary();
+  const { rubricsFor } = L;
 
   if (board.isLoading) return <Loading />;
   if (board.error) return <ErrorNote error={board.error} />;
   const rows = (board.data?.rows ?? []).filter((r) => r.id !== v.me.member?.id);
   const member = rows.find((r) => r.id === memberId);
   const options = member ? rubricsFor(member.role) : [];
-  const rubric = RUBRIC_BY_SLUG[rubricSlug] && (!member || options.some((o) => o.slug === rubricSlug)) ? RUBRIC_BY_SLUG[rubricSlug] : options[0];
+  const rubric = L.rubricBySlug[rubricSlug] && (!member || options.some((o) => o.slug === rubricSlug)) ? L.rubricBySlug[rubricSlug] : options[0];
   const scored = rubric ? rubric.criteria.filter((c) => scores[c.key]).length : 0;
   const avg = gradeAverage(scores);
   const needsTrainee = rubric?.kind === "skill";
@@ -71,6 +73,7 @@ export function GradeNewPage() {
             {options.map((r) => (
               <option key={r.slug} value={r.slug}>
                 {r.title}
+                {r.repeat ? ` · repeats ${r.repeat}` : ""}
               </option>
             ))}
           </select>
@@ -100,7 +103,7 @@ export function GradeNewPage() {
             <div>
               <div className="font-display text-[22px] leading-tight">{member.name}</div>
               <div className="text-[12.5px] text-ink-soft">
-                {rubric.summary} Module: {MODULE_BY_SLUG[rubric.module]?.title}.
+                {rubric.summary} Module: {L.moduleBySlug[rubric.module]?.title}.{rubric.repeat && ` Repeats ${rubric.repeat}.`}
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -185,10 +188,11 @@ export function GradeNewPage() {
 export function GradeView() {
   const { id } = useParams<{ id: string }>();
   const q = useGrade(id);
+  const L = useLibrary();
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorNote error={q.error} />;
   const g = q.data!;
-  const r = RUBRIC_BY_SLUG[g.rubric];
+  const r = L.rubricBySlug[g.rubric];
   return (
     <Page
       eyebrow={

@@ -1,5 +1,6 @@
 import { DEFAULT_TICKET_TARGET } from "../../shared/metrics";
 import { z } from "zod";
+import { loadLibrary } from "../lib/library";
 import { ORPCError } from "@orpc/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../database";
@@ -51,7 +52,7 @@ export const stores = {
       const id = crypto.randomUUID();
       const number = await uniqueStoreNumber();
       await db.insert(s.stores).values({ id, orgId: context.viewer.orgId, number, ...input });
-      await seedTemplates(id);
+      await seedTemplates(id, (await loadLibrary(context.viewer.orgId)).lib.checklists);
       return { id, number };
     }),
 
