@@ -37,6 +37,6 @@
     "pm2": "^7.0.1"
   },
   "overrides": {
-    "cpu-features": "file:./scripts/stubs/cpu-features"
+    "cpu-features": "file:./vendor/cpu-features"
   }
 }
