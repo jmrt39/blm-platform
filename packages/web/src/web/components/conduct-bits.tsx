@@ -131,7 +131,7 @@ export function EventRow({ e, showName, canExcuse }: { e: EventRowData; showName
             {e.status === "excused" && (
               <span className="text-ink-soft">
                 Excused by {e.excusedByName}
-                {e.excusedReason ? ` — “${e.excusedReason}”` : ""}
+                {e.excusedReason ? `: “${e.excusedReason}”` : ""}
               </span>
             )}
             {e.inWindow === false && e.status !== "excused" && <span className="text-ink-soft">Rolled off after {STRIKE_WINDOW_DAYS} days</span>}
@@ -157,7 +157,7 @@ export function EventRow({ e, showName, canExcuse }: { e: EventRowData; showName
           <input
             aria-label="Reason for excusing"
             className="field !h-9 min-w-[240px] flex-1 !text-[13px]"
-            placeholder="Why it's excused — e.g. doctor's note, subway outage"
+            placeholder="Why it's excused, like a doctor's note or a subway outage"
             value={reason}
             minLength={3}
             required
@@ -243,7 +243,7 @@ export function ConductSection({ memberId }: { memberId: string }) {
           )}
           {d.lineups.total > 0 && (
             <div className="mt-3 border-t border-paper-line pt-3 text-[12.5px] text-ink-soft">
-              Line-ups: {d.lineups.onTime} of {d.lineups.total} on time · in uniform {d.lineups.inUniform} of {d.lineups.attended}
+              Line ups: {d.lineups.onTime} of {d.lineups.total} on time · in uniform {d.lineups.inUniform} of {d.lineups.attended}
             </div>
           )}
         </div>
@@ -273,7 +273,7 @@ export function ConductSection({ memberId }: { memberId: string }) {
           <div className="text-[11.5px] text-ink-soft">since {shortDay(d.windowFrom)}</div>
         </div>
         {!d.events.length ? (
-          <Empty>Clean record — on time and in uniform.</Empty>
+          <Empty>Clean record. On time and in uniform.</Empty>
         ) : (
           <ul className="divide-y divide-paper-line border-y rule">
             {d.events.map((e) => (

@@ -8,6 +8,7 @@ import { Page, Loading, ErrorNote } from "../components/shell";
 import { useViewer } from "../components/viewer";
 import { Bar, Delta, Empty, Spark, Stat, StatusPill } from "../components/bits";
 import { Monogram } from "../components/monogram";
+import { LastYearStrip } from "../components/last-year";
 import { useHome } from "../queries/reports";
 import { useTodayChecklists } from "../queries/checklists";
 import { useSetupStatus } from "../queries/setup";
@@ -193,6 +194,10 @@ function OwnerHome() {
             </>
           }
         />
+      </motion.div>
+
+      <motion.div {...rise(2)}>
+        <LastYearStrip night={h.lastYear.night} month={h.lastYear.month} today={h.lastYear.today} lastNight={h.lastNight} />
       </motion.div>
 
       {/* What to do next */}

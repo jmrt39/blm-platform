@@ -202,6 +202,8 @@ export const studio = {
         aiError: i.aiError,
         approvedByName: i.approvedByName,
         updatedAt: i.updatedAt.getTime(),
+        /** The standard program was written for the 1906 demo house. Flag anything that still names it. */
+        foreign: !org!.isDemo && /\b1906\b/.test(JSON.stringify(i.data)),
         kind: i.type === "quiz" ? ((i.data as { kind?: string }).kind ?? "knowledge") : i.type === "rubric" ? (i.data as { kind?: string }).kind : null,
         repeat: i.type === "rubric" ? ((i.data as { repeat?: string }).repeat ?? null) : null,
         size:
@@ -231,7 +233,12 @@ export const studio = {
 
   /** Draft the priorities list from the audit findings. Nothing is saved until BLM saves the brief. */
   suggestPriorities: studioBase.input(z.object({ findings: z.string().min(20).max(20000), preferences: z.string().max(8000).default("") })).handler(async ({ input }) => {
-    return suggestPriorities(input.findings, input.preferences);
+    try {
+      return await suggestPriorities(input.findings, input.preferences);
+    } catch (e) {
+      console.error("studio.suggestPriorities", e);
+      throw new ORPCError("BAD_GATEWAY", { message: "The AI could not read those findings this time. Try again, or write the priorities yourself." });
+    }
   }),
 
   /** Material from the client: pasted text, or a PDF or photo the AI transcribes. */

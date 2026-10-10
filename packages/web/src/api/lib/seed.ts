@@ -387,6 +387,28 @@ export async function seedDemoOrg(user: { id: string; name: string; email: strin
     await insertChunked(s.shiftReports, reportRows);
     await insertChunked(s.shiftReportLines, reportLineRows, 120);
 
+    // A full year of daily totals, as if handed over from the POS before launch.
+    // Last year ran a few points behind, so the year over year comparison tells the story of the lift.
+    const byDow = Array.from({ length: 7 }, () => ({ sales: 0, tickets: 0, covers: 0, n: 0 }));
+    for (const r of reportRows) {
+      const w = byDow[new Date(r.businessDate + "T12:00:00Z").getUTCDay()]!;
+      w.sales += r.netSales;
+      w.tickets += r.checks ?? 0;
+      w.covers += r.covers ?? 0;
+      w.n++;
+    }
+    const historyRows: (typeof s.historyDays.$inferInsert)[] = [];
+    for (let k = 0; k < 365; k++) {
+      const date = addDays(today, -364 - 304 + k);
+      const w = byDow[new Date(date + "T12:00:00Z").getUTCDay()]!;
+      if (!w.n) continue;
+      const trend = 0.9 + (k / 365) * 0.04;
+      const tickets = Math.round((w.tickets / w.n) * (0.97 + rand() * 0.06) * (0.99 + (k / 365) * 0.02));
+      const spt = (w.sales / Math.max(1, w.tickets)) * trend * (0.97 + rand() * 0.06);
+      historyRows.push({ orgId, storeId, date, netSales: round2(tickets * spt), tickets, covers: Math.round((w.covers / w.n) * (0.95 + rand() * 0.1)) });
+    }
+    await insertChunked(s.historyDays, historyRows, 120);
+
     await seedConduct({
       orgId,
       storeId,

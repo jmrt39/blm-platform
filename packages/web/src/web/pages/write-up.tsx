@@ -57,10 +57,10 @@ export default function WriteUpPage() {
     >
       <div className="grid gap-10 lg:grid-cols-[1.5fr_1fr]">
         <div className="space-y-8">
-          {a.status === "void" && <Warn>Void — {a.voidReason ?? "no longer applies."}</Warn>}
+          {a.status === "void" && <Warn>Void: {a.voidReason ?? "no longer applies."}</Warn>}
           {a.status === "declined" && (
             <Warn>
-              The owner declined this termination{a.ownerNote ? ` — “${a.ownerNote}”` : ""}. {member?.name.split(" ")[0]} stays on a performance plan.
+              The owner declined this termination{a.ownerNote ? `: “${a.ownerNote}”` : ""}. {member?.name.split(" ")[0]} stays on a performance plan.
             </Warn>
           )}
 
@@ -166,7 +166,7 @@ export default function WriteUpPage() {
               ) : can.employeeSign ? (
                 <>
                   {refused ? (
-                    <div className="grid h-[140px] place-items-center rounded-[2px] border border-dashed border-oxblood/50 text-[13px] text-oxblood">Refused — witnessed by {a.managerName}</div>
+                    <div className="grid h-[140px] place-items-center rounded-[2px] border border-dashed border-oxblood/50 text-[13px] text-oxblood">Refused, witnessed by {a.managerName}</div>
                   ) : (
                     <SigField id="emp" onSig={onEmp} caption={`Received · ${a.memberName}`} />
                   )}
@@ -211,7 +211,7 @@ export default function WriteUpPage() {
                       Approve termination
                     </button>
                     <button disabled={decide.isPending} onClick={() => decide.mutate({ id: a.id, approve: false, note: ownerNote })} className="btn btn-noir-line">
-                      Decline — keep on plan
+                      Decline, keep on plan
                     </button>
                   </div>
                 </>
@@ -232,7 +232,7 @@ export default function WriteUpPage() {
           <div className="rounded-[2px] bg-paper-2 p-5 text-[13px] leading-relaxed">
             <div className="eyebrow mb-2">The policy</div>
             Every late arrival (more than 5 minutes), dress-code miss, no-show and swap without proof is a strike. Strikes count for {STRIKE_WINDOW_DAYS} days unless a manager excuses
-            them. 3 strikes is a verbal warning, 4 written, 5 a performance plan, 6 termination — which the owner approves before it's final.
+            them. 3 strikes is a verbal warning, 4 written, 5 a performance plan, 6 termination, which the owner approves before it's final.
           </div>
           {history.length > 0 && (
             <div>

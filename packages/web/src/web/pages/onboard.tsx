@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Crest, NoirScreen, useStartDemo } from "./sign-in";
 import { useSessionActions } from "../components/viewer";
@@ -64,6 +65,9 @@ export function Setup({ user }: { user: { name: string; email: string } }) {
         <button onClick={demo.run} disabled={demo.busy} className="inline-flex items-center gap-2 font-semibold text-gold hover:underline">
           <Sparkles className="size-4" /> {demo.busy ? "Loading the demo…" : "Or explore the demo group first"}
         </button>
+        <Link href="/studio" className="hover:text-ivory">
+          BLM staff: Implementation Studio
+        </Link>
         <button onClick={signOut} className="hover:text-ivory">
           Sign out ({user.email})
         </button>

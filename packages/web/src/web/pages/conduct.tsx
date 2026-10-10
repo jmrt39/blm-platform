@@ -44,7 +44,7 @@ function ManagerConduct() {
   const combined = v.isLeader && !v.scope;
   return (
     <Page
-      eyebrow={combined ? "All stores — combined" : `${v.store?.name} · Store ${v.store?.number}`}
+      eyebrow={combined ? "All stores, combined" : `${v.store?.name} · Store ${v.store?.number}`}
       title="Conduct & discipline"
       aside={
         <>
@@ -69,7 +69,7 @@ function ManagerConduct() {
             <Stat label={`Strikes · ${STRIKE_WINDOW_DAYS} days`} value={d.totals.strikes} />
             <Stat label="Late" value={d.totals.late} tone={d.totals.late ? "bad" : undefined} />
             <Stat label="Dress code" value={d.totals.dress} tone={d.totals.dress ? "bad" : undefined} />
-            <Stat label="No-shows" value={d.totals.noShow} tone={d.totals.noShow ? "bad" : undefined} />
+            <Stat label="No shows" value={d.totals.noShow} tone={d.totals.noShow ? "bad" : undefined} />
             <Stat label="Swap protocol" value={d.totals.swap} tone={d.totals.swap ? "bad" : undefined} />
             <Stat label="On a step" value={d.totals.atStep} sub="verbal or higher" tone="gold" />
           </div>
@@ -100,7 +100,7 @@ function ManagerConduct() {
             <div>
               <div className="mb-2 flex items-baseline justify-between">
                 <div className="eyebrow">Last 30 days</div>
-                <div className="text-[11.5px] text-ink-soft">Excuse anything with a good reason — it stops counting.</div>
+                <div className="text-[11.5px] text-ink-soft">Excuse anything with a good reason and it stops counting.</div>
               </div>
               {!d.recent.length ? (
                 <Empty>No strikes in the last 30 days.</Empty>
@@ -174,7 +174,7 @@ function Attention({ d, combined, storeName }: { d: Overview; combined: boolean;
   if (!owner.length && !sign.length && !swaps.length && !acks.length)
     return (
       <div className="flex items-center gap-3 rounded-[2px] bg-paper-2 px-5 py-4 text-[13.5px]">
-        <Check className="size-4 text-sage" /> Nothing waiting — every strike is signed for, every write-up is on file and every swap is reviewed.
+        <Check className="size-4 text-sage" /> Nothing waiting. Every strike is signed for, every write-up is on file and every swap is reviewed.
       </div>
     );
   return (
@@ -280,7 +280,7 @@ function AckPanel({ events }: { events: Overview["pendingAcks"] }) {
           </ul>
           <div>
             {refused ? (
-              <div className="grid h-[140px] place-items-center rounded-[2px] border border-dashed border-oxblood/50 text-[13px] text-oxblood">Refused — witnessed by {v.me.accessName}</div>
+              <div className="grid h-[140px] place-items-center rounded-[2px] border border-dashed border-oxblood/50 text-[13px] text-oxblood">Refused, witnessed by {v.me.accessName}</div>
             ) : (
               <SigField id={e0.memberId} onSig={onSig} caption={`Signed · ${e0.memberName}`} />
             )}
@@ -346,7 +346,7 @@ function SwapReview({ s }: { s: Overview["swaps"][number] }) {
         {s.worked && (
           <label className="mt-2 flex items-center gap-2 text-[12px] text-ink-soft">
             <input type="checkbox" aria-label="Record a strike" className="accent-[#7a2a26]" checked={strike} onChange={(e) => setStrike(e.target.checked)} />
-            If rejecting: the swap was already worked — record a strike for {s.fromName.split(" ")[0]}
+            If rejecting: the swap was already worked, so record a strike for {s.fromName.split(" ")[0]}
           </label>
         )}
         <ErrorNote error={review.error} />
@@ -381,7 +381,7 @@ function PeopleTable({ people, combined, storeName }: { people: Overview["people
             <th>Strikes · 90 days</th>
             <th className="r">Late</th>
             <th className="r">Dress</th>
-            <th className="r">No-show</th>
+            <th className="r">No show</th>
             <th className="r">Swap</th>
             <th>Step</th>
             <th>Rolls off</th>

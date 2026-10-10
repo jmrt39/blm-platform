@@ -81,11 +81,15 @@ Decisions (user answered form):
 - AI drafts quizzes, floor exercises (repeatable cadence), POS knowledge checks; nothing reaches client until approved + published.
 
 Progress
-- [ ] ticket conversion
-- [ ] schema (studio_staff, implementations, sources, content_items, org_programs, history_days)
-- [ ] library per org (api loader + web useLibrary)
-- [ ] history import + YoY home/reports + demo seed history
-- [ ] studio api (clients, brief, sources+extract, drafts, review, publish)
-- [ ] studio web
-- [ ] repeatable floor exercises, talking points on line-up
-- [ ] verify, deliver, push
+- [x] ticket conversion
+- [x] schema (studio_staff, implementations, sources, content_items, org_programs, history_days)
+- [x] library per org (api loader + web useLibrary)
+- [x] history import + YoY home/reports + demo seed history
+- [x] studio api (clients, brief, sources+extract, drafts, review, publish)
+- [x] studio web
+- [x] repeatable floor exercises, talking points on line-up
+- [x] verify in browser (Playwright): Studio walk through + publish on Harbor House, client owner view, YoY home/reports, line up brief, fresh demo seed
+- [ ] push (blocked: fine grained token lacks Contents write on blm-platform and BottomLineMultipliedWebsite-2428)
+Open
+- Standard library copy (shared/library) still has em dashes and is written around 1906; Studio flags literal "1906" items.
+- Optional: POS checks as their own group on /quizzes, history step on setup checklist, move parseHistory out of studio-client.tsx.

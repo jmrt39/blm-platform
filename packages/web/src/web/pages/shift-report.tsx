@@ -384,7 +384,7 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
             {csvMsg && !csvMsg.error && (
               <div className="mt-2 text-[12.5px] text-ink-soft">
                 {lines.length} rows read.{" "}
-                {csvMsg.unmatched.length ? <span className="text-oxblood">Not on the roster: {csvMsg.unmatched.join(", ")} — they'll be saved by name.</span> : "Everyone matched to the roster."}
+                {csvMsg.unmatched.length ? <span className="text-oxblood">Not on the roster: {csvMsg.unmatched.join(", ")}. They'll be saved by name.</span> : "Everyone matched to the roster."}
               </div>
             )}
           </div>
@@ -424,7 +424,7 @@ function Entry({ onSubmitted }: { onSubmitted: (date: string) => void }) {
                         {!l.memberId && l.name && <option value={`name:${l.name}`}>{l.name} (not on roster)</option>}
                         {people.map((m) => (
                           <option key={m.id} value={m.id}>
-                            {m.name} — {ROLE_LABEL[m.role]}
+                            {m.name} · {ROLE_LABEL[m.role]}
                           </option>
                         ))}
                       </select>

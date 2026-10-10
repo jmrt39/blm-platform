@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { Monogram, Wordmark } from "./monogram";
 import { useViewer } from "./viewer";
 import { useViewAs } from "../queries/session";
+import { useStudioMe } from "../queries/studio";
 import { storeSession } from "../lib/store-session";
 import { ROLE_LABEL } from "../../shared/domain";
 import { cn } from "../lib/utils";
@@ -31,7 +32,7 @@ function navFor(level: string): { main: NavItem[]; program: NavItem[] } {
       { href: "/", label: "Home" },
       { href: "/checklists", label: "Checklists" },
       { href: "/team", label: "Team" },
-      { href: "/lineup", label: "Line-up" },
+      { href: "/lineup", label: "Line up" },
       { href: "/conduct", label: "Conduct" },
       { href: "/shift-report", label: "Shift report" },
       { href: "/reports", label: "Reports" },
@@ -115,7 +116,7 @@ function ScopePicker() {
       </div>
     );
   }
-  const label = v.scope ? (v.store?.name ?? "Store") : "All stores — combined";
+  const label = v.scope ? (v.store?.name ?? "Store") : "All stores, combined";
   return (
     <div className="relative">
       <button
@@ -132,7 +133,7 @@ function ScopePicker() {
         <>
           <button type="button" aria-label="Close menu" className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} />
           <div className="absolute left-0 top-full z-50 mt-2 w-72 rounded-[2px] border border-noir-line bg-noir-2 p-1.5 shadow-2xl">
-            <ScopeItem active={!v.scope} onClick={() => (v.setScope(null), setOpen(false))} title="All stores — combined" sub={`${v.me.stores.length} stores`} />
+            <ScopeItem active={!v.scope} onClick={() => (v.setScope(null), setOpen(false))} title="All stores, combined" sub={`${v.me.stores.length} stores`} />
             <div className="my-1 h-px bg-noir-line" />
             {v.me.stores.map((s) => (
               <ScopeItem
@@ -200,13 +201,13 @@ function ViewAsSwitcher() {
                   key={c.id}
                   active={v.me.viewingAs && v.me.member?.id === c.id}
                   onClick={() => go(c.id)}
-                  title={`${c.name} — ${ROLE_LABEL[c.role]}`}
+                  title={`${c.name}, ${ROLE_LABEL[c.role]}`}
                   sub={`${storeName(c.storeId)} · PIN ${c.pin}`}
                 />
               );
             })}
             <div className="mt-1 border-t border-noir-line px-3 py-2 text-[11px] leading-relaxed text-[#8b8277]">
-              Store numbers for PIN sign-in:{" "}
+              Store numbers for PIN sign in:{" "}
               {v.me.demo.stores.map((s) => `${s.name.replace("1906 ", "")} ${s.number}`).join(" · ")}
             </div>
           </div>
@@ -221,6 +222,7 @@ function UserChip() {
   const [open, setOpen] = useState(false);
   const roleLabel = ROLE_LABEL[v.me.accessRole] ?? v.me.accessRole;
   const hasStoreSession = !!v.me.member && !!v.me.user && !v.me.viewingAs;
+  const studio = useStudioMe();
   return (
     <div className="relative">
       <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2.5 text-left">
@@ -245,6 +247,11 @@ function UserChip() {
             {v.me.member && (
               <Link href={`/team/${v.me.member.id}`} onClick={() => setOpen(false)} className="block rounded-[2px] px-3 py-2 text-[13px] text-ivory hover:bg-noir">
                 My profile
+              </Link>
+            )}
+            {studio.data?.staff && (
+              <Link href="/studio" onClick={() => setOpen(false)} className="block rounded-[2px] px-3 py-2 text-[13px] text-gold hover:bg-noir">
+                Implementation Studio
               </Link>
             )}
             {hasStoreSession && (
@@ -338,7 +345,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <footer className="mx-auto flex max-w-[1280px] items-center gap-3 px-6 pb-16 pt-4 text-[11px] text-[#6d655b]">
-        <Monogram size={18} /> The Platform — Bottom Line Multiplied · Front of house
+        <Monogram size={18} /> The Platform · Bottom Line Multiplied · Front of house
       </footer>
     </div>
   );

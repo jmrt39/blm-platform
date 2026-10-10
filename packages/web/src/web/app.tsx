@@ -30,6 +30,7 @@ import RewardsPage from "./pages/rewards";
 import CertsPage from "./pages/certs";
 import LogbookPage, { LogEntryPage } from "./pages/logbook";
 import SlowNightPage from "./pages/slow";
+import StudioApp from "./pages/studio";
 
 function Splash() {
   return (
@@ -59,6 +60,7 @@ function Gate() {
 function Routes() {
   const me = useMe();
   const qc = useQueryClient();
+  const [loc] = useLocation();
   // A stale store token (expired PIN session) should not lock anyone out.
   useEffect(() => {
     if (me.error && storeSession.get()) {
@@ -70,6 +72,8 @@ function Routes() {
   if (me.isLoading) return <Splash />;
   const d = me.data;
   if (!d || d.kind === "signed_out") return <SignIn />;
+  // BLM staff work in the Studio whether or not they belong to a group.
+  if (loc === "/studio" || loc.startsWith("/studio/")) return d.user ? <StudioApp /> : <SignIn />;
   if (d.kind === "no_org") return <Setup user={d.user} />;
   if (d.kind === "needs_store") return <Unlock user={d.user} stores={d.stores} />;
   return (

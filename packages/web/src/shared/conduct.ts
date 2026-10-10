@@ -17,7 +17,7 @@ export type EventType = (typeof EVENT_TYPES)[number];
 export const EVENT_LABEL: Record<EventType, string> = {
   late: "Late",
   dress_code: "Out of dress code",
-  no_show: "No-show",
+  no_show: "No show",
   swap_protocol: "Swap without protocol",
 };
 
@@ -28,7 +28,7 @@ export const UNIFORM_ITEMS = [
   "Black shirt, pressed",
   "Black trousers or skirt",
   "Apron",
-  "Black non-slip shoes",
+  "Black non slip shoes",
   "Name badge",
   "Hair & grooming",
   "Wine key & pens",
@@ -71,7 +71,7 @@ export function nextOnLadder(strikes: number, have: Step | null): { step: Step; 
 }
 
 export const SWAP_RULE =
-  "Attach a screenshot of the text with the person picking up the shift. It must show the date, the start time, and their written agreement to take it. A thumbs-up or emoji is not confirmation.";
+  "Attach a screenshot of the text with the person picking up the shift. It must show the date, the start time, and their written agreement to take it. A thumbs up or emoji is not confirmation.";
 
 export function minutesBetween(from: string, to: string) {
   const [a, b] = from.split(":").map(Number);
@@ -120,7 +120,7 @@ export function infractionsFor(e: EntryLike, shift: Shift) {
       type: "dress_code",
       detail: `Out of dress code at the ${sh} line-up${e.uniformMissing.length ? `: ${e.uniformMissing.join(", ").toLowerCase()}` : ""}.`,
     });
-  if (e.arrival === "no_show") out.push({ type: "no_show", detail: `No-show for the ${sh} shift (scheduled ${clock12(e.scheduledStart)}).` });
+  if (e.arrival === "no_show") out.push({ type: "no_show", detail: `No show for the ${sh} shift (scheduled ${clock12(e.scheduledStart)}).` });
   if (e.arrival === "swap_unapproved")
     out.push({
       type: "swap_protocol",

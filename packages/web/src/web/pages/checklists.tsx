@@ -302,7 +302,7 @@ export function ChecklistDetail() {
                           <input
                             aria-label="Reason it doesn't apply today"
                             className="field min-w-[220px] flex-1"
-                            placeholder="Why doesn't this apply today? e.g. Patio closed — rain"
+                            placeholder="Why doesn't this apply today? like Patio closed, rain"
                             value={naReason}
                             onChange={(e) => setNaReason(e.target.value)}
                           />
@@ -474,7 +474,7 @@ function ChecklistRules({
       {open && (
         <dl className="grid gap-x-8 gap-y-3 border-t rule px-4 py-4 text-[13px] md:grid-cols-2">
           <Rule k="Which day it belongs to">
-            The business day runs 4:00 am to 3:59 am. A closing finished at 1:00 am belongs to the night before — this one is {dayLabel(businessDate)}.
+            The business day runs 4:00 am to 3:59 am. A closing finished at 1:00 am belongs to the night before. This one is {dayLabel(businessDate)}.
           </Rule>
           <Rule k="Which clock">All times are store time: {zone} ({rules.timezone}).</Rule>
           <Rule k="Early ticks">
@@ -482,13 +482,13 @@ function ChecklistRules({
           </Rule>
           <Rule k="On time">Submitted by {timeOf(rules.dueAt, tz)}{type === "closing" ? " the next morning" : ""}. After that it counts as late; never submitted counts as missed.</Rule>
           <Rule k="What the statuses mean">
-            <b>Initialled</b> — a colleague did the task and stamped it. <b>Verified</b> — the manager walked the room and signed. <b>Submitted</b> — locked into the record. Only submitted lists count as complete.
+            <b>Initialled</b>: a colleague did the task and stamped it. <b>Verified</b>: the manager walked the room and signed. <b>Submitted</b>: locked into the record. Only submitted lists count as complete.
           </Rule>
           <Rule k="Who owns it">
             Each line belongs to whoever initials it. The list belongs to the manager on duty; if it's still open at the due time it escalates to {rules.owner ? `${rules.owner.name} (${ROLE_LABEL[rules.owner.role] ?? rules.owner.role})` : "the GM"}.
           </Rule>
           <Rule k="Not applicable">
-            Tap N/A and give a reason (e.g. “Patio closed — rain”). The reason, who said so and the time stay on the record, and the manager sees it before signing.
+            Tap N/A and give a reason (like “Patio closed, rain”). The reason, who said so and the time stay on the record, and the manager sees it before signing.
           </Rule>
         </dl>
       )}

@@ -33,7 +33,7 @@ const STORY: { events: Ev[]; actions: Act[]; swaps: Sw[] }[] = [
   {
     events: [
       { name: "Daniel Okafor", d: 40, type: "late", min: 12 },
-      { name: "Daniel Okafor", d: 21, type: "dress_code", missing: ["Black non-slip shoes"] },
+      { name: "Daniel Okafor", d: 21, type: "dress_code", missing: ["Black non slip shoes"] },
       { name: "Daniel Okafor", d: 6, type: "late", min: 9 },
       { name: "Sam Whitaker", d: 25, type: "late", min: 8 },
       { name: "Sam Whitaker", d: 11, type: "dress_code", missing: ["Apron", "Wine key & pens"] },
@@ -70,7 +70,7 @@ const STORY: { events: Ev[]; actions: Act[]; swaps: Sw[] }[] = [
       { name: "Mateo Silva", d: 30, type: "late", min: 13 },
       { name: "Mateo Silva", d: 12, type: "late", min: 15 },
       { name: "Lena Novak", d: 5, type: "late", min: 8 },
-      { name: "Noah Reed", d: 14, type: "dress_code", missing: ["Black non-slip shoes"], status: "refused" },
+      { name: "Noah Reed", d: 14, type: "dress_code", missing: ["Black non slip shoes"], status: "refused" },
     ],
     actions: [
       { name: "Jamal Harris", d: 52, step: "verbal", strikes: 3, status: "final" },
@@ -91,7 +91,7 @@ const STORY: { events: Ev[]; actions: Act[]; swaps: Sw[] }[] = [
     events: [
       { name: "Ryan Doyle", d: 17, type: "late", min: 10 },
       { name: "Ryan Doyle", d: 8, type: "dress_code", missing: ["Black trousers or skirt"] },
-      { name: "Diego Herrera", d: 5, type: "dress_code", missing: ["Black non-slip shoes"] },
+      { name: "Diego Herrera", d: 5, type: "dress_code", missing: ["Black non slip shoes"] },
       { name: "Zoe Alvarez", d: 10, type: "late", min: 31, status: "excused", excuse: "Called ahead — car accident on the parkway, police report shown." },
     ],
     actions: [],

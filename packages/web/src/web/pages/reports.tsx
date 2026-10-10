@@ -7,6 +7,7 @@ import { Bar, Delta, Empty, Seg, Spark, Stat } from "../components/bits";
 import { HowCalculated } from "../components/how";
 import { Monogram } from "../components/monogram";
 import { useRange } from "../queries/reports";
+import { LastYearLine } from "../components/last-year";
 import { money, money2, num, pct, shortDay } from "../lib/format";
 import { ROLE_LABEL } from "../../shared/domain";
 import { cn } from "../lib/utils";
@@ -81,7 +82,7 @@ export default function ReportsPage() {
         <div className="relative">
           <div className="grid grid-cols-2 gap-x-6 gap-y-8 border-b rule pb-9 lg:grid-cols-5">
             <Stat label={<>Net sales <HowCalculated metric="netSales" period={`${r.from} to ${r.to}`} /></>} value={money(r.totals.sales)} sub={r.comparable ? <Delta cur={r.totals.sales} prev={r.previous.sales} /> : <span className="text-ink-soft">No full prior period</span>} />
-            <Stat label="Covers" value={num(r.totals.covers)} sub={r.comparable ? <Delta cur={r.totals.covers} prev={r.previous.covers} /> : <span className="text-ink-soft">—</span>} />
+            <Stat label="Covers" value={num(r.totals.covers)} sub={r.comparable ? <Delta cur={r.totals.covers} prev={r.previous.covers} /> : <span className="text-ink-soft">No full prior period</span>} />
             <Stat
               label={<>Spend per ticket <HowCalculated metric="spendPerTicket" period={`${r.from} to ${r.to}`} /></>}
               value={money2(r.totals.spt)}
@@ -105,6 +106,11 @@ export default function ReportsPage() {
             />
             <Stat label="Comps, voids, discounts" value={pct(r.totals.leakageRate, 1)} sub={`${money(r.totals.comps + r.totals.voids + r.totals.discounts)} of sales`} />
           </div>
+          {r.lastYear && (
+            <div className="border-b rule py-4">
+              <LastYearLine c={r.lastYear} />
+            </div>
+          )}
 
           <div className="grid gap-10 py-9 lg:grid-cols-[1.3fr_1fr]">
             <div>
@@ -266,7 +272,7 @@ export default function ReportsPage() {
             </div>
           </div>
           <div className="flex items-center justify-between border-t-2 border-ink pt-4 text-[11px] text-ink-soft">
-            <span>The Platform — Bottom Line Multiplied</span>
+            <span>The Platform · Bottom Line Multiplied</span>
             <span>{v.me.isDemo ? "Demo data · illustrative" : "From signed shift reports and checklists"}</span>
           </div>
         </div>

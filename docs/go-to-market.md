@@ -134,6 +134,13 @@ A new group starts from a **blank organisation**: no fake data, only the standar
 5. **Already in place for every new org:** the 14 standard training modules, the knowledge checks and the grading rubrics. They're shared across the library, so nothing has to be copied in.
 6. **The first week:** managers enter shift reports from the POS end-of-day screen. Spend per guest comparisons start after 3 shifts per person, and the 30-day picture fills in from there.
 
+7. **Before the group goes live, BLM builds their program in the Implementation Studio** (`/studio`, staff only):
+   1. **Brief:** paste the audit findings (AI suggests weighted priorities you edit), owner preferences, reputation notes and the spend per ticket target for each store.
+   2. **Materials:** paste or upload the menu, wine list, bar list, steps of service, standards, protocols and POS guide.
+   3. **Last year:** paste the POS daily export for a full previous year (date, net sales, checks, guests) per store. This drives "on this day last year" on Home, Reports and the line up.
+   4. **Build:** every BLM standard item (14 modules, 15 quizzes, 6 rubrics, 8 rewards, checklists, talking points) is listed. Adapt one or all with AI, edit, add new items (POS checks, repeat drills), then approve or exclude each.
+   5. **Publish:** only approved items go live. Republishing makes a new version and keeps staff progress.
+
 **Your one-day staff and manager training** maps onto this: the morning is the floor (PIN sign-in, checklists, quizzes); the afternoon is managers (shift reports, line-up, conduct, slow night, reading the home page).
 
 ---

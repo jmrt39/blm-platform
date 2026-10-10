@@ -8,6 +8,7 @@ import { Empty, Seg } from "../components/bits";
 import { SignatureView, SignedStamp } from "../components/signature";
 import { ActionStatus, EventRow, SigField, StepChip, StrikeDots, Warn } from "../components/conduct-bits";
 import { QuoteCard } from "./guests";
+import { LineupBrief } from "../components/lineup-brief";
 import { useGuestFeedback } from "../queries/guests";
 import { useUpdates } from "../queries/updates";
 import { UPDATE_KINDS, type UpdateKind } from "../../shared/program";
@@ -68,7 +69,7 @@ export default function LineupPage() {
           {v.isLeader && !v.scope && <span className="text-oxblood"> · pick a store in “Viewing” to switch</span>}
         </>
       }
-      title="Line-up"
+      title="Line up"
       aside={
         <>
           <Seg value={shift} onChange={setShift} options={[{ value: "lunch", label: "Lunch" }, { value: "dinner", label: "Dinner" }]} />
@@ -101,6 +102,7 @@ export default function LineupPage() {
 
 function NotStarted({ d, shift }: { d: Data; shift: Shift }) {
   const start = useStartLineup();
+  const v = useViewer();
   const [call, setCall] = useState(DEFAULT_CALL[shift]);
   const approved = d.swaps.filter((s) => s.status === "approved");
   return (
@@ -108,10 +110,10 @@ function NotStarted({ d, shift }: { d: Data; shift: Shift }) {
       <div>
         <div className="eyebrow mb-2">{dayLabel(d.date)}</div>
         <h2 className="font-display text-[28px] leading-tight">
-          {shift === "lunch" ? "Lunch" : "Dinner"} line-up hasn't started.
+          {shift === "lunch" ? "Lunch" : "Dinner"} line up hasn't started.
         </h2>
         <p className="mt-2 max-w-lg text-[14px] leading-relaxed text-ink-soft">
-          Run it at the pre-shift standup. Mark who's on time, who's late, and whether everyone is in dress code. Anyone with a strike signs for it on this device before you sign off.
+          Run it at the pre shift standup. Mark who's on time, who's late, and whether everyone is in dress code. Anyone with a strike signs for it on this device before you sign off.
         </p>
         {d.isToday ? (
           <div className="mt-6 flex flex-wrap items-end gap-3">
@@ -120,16 +122,21 @@ function NotStarted({ d, shift }: { d: Data; shift: Shift }) {
               <input type="time" aria-label="Scheduled start" className="field !w-40" value={call} key={shift} onChange={(e) => setCall(e.target.value)} />
             </div>
             <button disabled={start.isPending} onClick={() => start.mutate({ storeId: d.store.id, shift, callTime: call, date: d.date })} className="btn btn-ink">
-              <Megaphone className="size-4" /> Start line-up · {d.roster.filter((r) => !["gm", "agm", "floor_manager", "bar_manager"].includes(r.role)).length} on the roster
+              <Megaphone className="size-4" /> Start line up · {d.roster.filter((r) => !["gm", "agm", "floor_manager", "bar_manager"].includes(r.role)).length} on the roster
             </button>
           </div>
         ) : (
           <div className="mt-6">
-            <Empty>No line-up was run for this shift.</Empty>
+            <Empty>No line up was run for this shift.</Empty>
           </div>
         )}
         <div className="mt-2 text-[12px] text-ink-soft">Late means more than {LATE_GRACE_MIN} minutes after the scheduled start.</div>
         <ErrorNote error={start.error} />
+        {d.isToday && (
+          <div className="mt-8">
+            <LineupBrief storeId={d.store.id} date={d.date} today={v.me.today ?? null} target={v.store?.ticketTarget ?? null} topics="" />
+          </div>
+        )}
         {approved.length > 0 && (
           <div className="mt-8">
             <div className="eyebrow mb-2">Approved swaps on this shift</div>
@@ -155,14 +162,14 @@ function NotStarted({ d, shift }: { d: Data; shift: Shift }) {
               ))}
             </ul>
             <Link href="/conduct" className="mt-3 inline-block text-[12.5px] font-semibold underline-offset-2 hover:underline">
-              Have them sign in Conduct →
+              Have them sign in Conduct
             </Link>
           </div>
         )}
         <div className="rounded-[2px] bg-paper-2 p-5">
           <div className="eyebrow mb-3">Last two weeks</div>
           {!d.recent.length ? (
-            <div className="text-[13px] text-ink-soft">No line-ups yet.</div>
+            <div className="text-[13px] text-ink-soft">No line ups yet.</div>
           ) : (
             <ul className="space-y-1.5 text-[13px]">
               {d.recent.slice(0, 10).map((r) => (
@@ -184,7 +191,7 @@ function NotStarted({ d, shift }: { d: Data; shift: Shift }) {
 const ARRIVAL_OPTS: { value: Arrival; label: string }[] = [
   { value: "on_time", label: "On time" },
   { value: "late", label: "Late" },
-  { value: "no_show", label: "No-show" },
+  { value: "no_show", label: "No show" },
   { value: "swap_unapproved", label: "Swap, no approval" },
 ];
 
@@ -242,12 +249,22 @@ function Running({ d, tz }: { d: Data; tz: string }) {
           <textarea
             aria-label="Topics"
             className="field min-h-[72px] !py-2 text-[13.5px]"
+            key={l.topics}
             defaultValue={l.topics}
             placeholder="Tonight's focus: suggest the half-bottle list at every two-top. 86 the halibut. Party of 12 at 7:30, nut allergy on table 4."
             onBlur={(e) => e.target.value !== l.topics && setLineup.mutate({ id: l.id, topics: e.target.value })}
           />
         </div>
       </div>
+
+      <LineupBrief
+        storeId={l.storeId}
+        date={d.date}
+        today={v.me.today ?? null}
+        target={v.store?.ticketTarget ?? null}
+        topics={l.topics}
+        onAdd={(text) => setLineup.mutate({ id: l.id, topics: [l.topics.trim(), text].filter(Boolean).join("\n") })}
+      />
 
       <PreShift d={d} />
 
@@ -281,7 +298,7 @@ function Running({ d, tz }: { d: Data; tz: string }) {
         </div>
         <ErrorNote error={addEntry.error ?? markRest.error} />
         {!d.entries.length ? (
-          <Empty>No one on this line-up. Add the people working this shift.</Empty>
+          <Empty>No one on this line up. Add the people working this shift.</Empty>
         ) : (
           <ul className="divide-y divide-paper-line border-y border-ink">
             {d.entries.map((e) => (
@@ -294,7 +311,7 @@ function Running({ d, tz }: { d: Data; tz: string }) {
       <div className="rounded-[2px] border border-ink p-5 md:p-7">
         <div className="mb-1 flex items-center gap-2">
           <ClipboardList className="size-4 text-gold-deep" />
-          <div className="eyebrow">Sign off the line-up</div>
+          <div className="eyebrow">Sign off the line up</div>
         </div>
         {unmarked.length > 0 ? (
           <p className="text-[13.5px] text-ink-soft">
@@ -327,7 +344,7 @@ function Running({ d, tz }: { d: Data; tz: string }) {
                     <div>
                       {refused[e.id] ? (
                         <div className="grid h-[140px] place-items-center rounded-[2px] border border-dashed border-oxblood/50 text-center text-[13px] text-oxblood">
-                          Refused to sign — witnessed by {v.me.accessName}.
+                          Refused to sign, witnessed by {v.me.accessName}.
                           <br />
                           The strike is still recorded.
                         </div>
@@ -359,11 +376,11 @@ function Running({ d, tz }: { d: Data; tz: string }) {
             <div className="grid gap-4 border-t border-ink pt-6 md:grid-cols-[1fr_1.2fr]">
               <div>
                 <div className="font-display text-[20px]">{v.me.accessName}</div>
-                <div className="text-[12.5px] text-ink-soft">{ROLE_LABEL[v.me.accessRole] ?? v.me.accessRole} · running the line-up</div>
+                <div className="text-[12.5px] text-ink-soft">{ROLE_LABEL[v.me.accessRole] ?? v.me.accessRole} · running the line up</div>
                 <p className="mt-3 text-[12px] text-ink-soft">By signing you confirm the roll call above is accurate.</p>
               </div>
               <div>
-                <SigField id="mgr" onSig={onMgr} caption={`Line-up run by · ${v.me.accessName}`} />
+                <SigField id="mgr" onSig={onMgr} caption={`Line up run by · ${v.me.accessName}`} />
                 <ErrorNote error={close.error} />
                 <button
                   disabled={!mgrSig || missingAck.length > 0 || close.isPending}
@@ -376,7 +393,7 @@ function Running({ d, tz }: { d: Data; tz: string }) {
                   }
                   className="btn btn-ink mt-3 w-full"
                 >
-                  {missingAck.length ? `Waiting on ${missingAck.map((x) => x.e.name.split(" ")[0]).join(", ")}` : "Sign off line-up"}
+                  {missingAck.length ? `Waiting on ${missingAck.map((x) => x.e.name.split(" ")[0]).join(", ")}` : "Sign off line up"}
                 </button>
               </div>
             </div>
@@ -388,7 +405,7 @@ function Running({ d, tz }: { d: Data; tz: string }) {
         <span>
           <b className="text-ink">Shift swaps:</b> {SWAP_RULE}{" "}
           <Link href="/conduct/swap" className="font-semibold text-ink underline-offset-2 hover:underline">
-            Log a swap →
+            Log a swap
           </Link>
         </span>
       </div>
@@ -422,7 +439,7 @@ function PreShift({ d }: { d: Data }) {
     <div className="rounded-[2px] border rule p-5 md:p-6">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <div className="eyebrow">Pre-shift board</div>
-        <div className="text-[11.5px] text-ink-soft">Read it out at line-up. Saves as you type.</div>
+        <div className="text-[11.5px] text-ink-soft">Read it out at line up. Saves as you type.</div>
       </div>
       <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
         <div className="space-y-4">
@@ -466,7 +483,7 @@ function StandingNote({ s, adding }: { s: { strikes: number; step: Step | null }
     <div className="mt-3 flex items-center gap-3 text-[12px]">
       <StrikeDots n={after} />
       <span className={cn(after >= 3 ? "font-semibold text-oxblood" : "text-ink-soft")}>
-        {after} in 90 days{opens ? ` — opens a ${STEP_LABEL[opens].toLowerCase()} write-up` : ""}
+        {after} in 90 days{opens ? `, opens a ${STEP_LABEL[opens].toLowerCase()} write-up` : ""}
       </span>
     </div>
   );
@@ -506,7 +523,7 @@ function EntryRow({
       <li className="flex items-center gap-3 py-3 text-[13.5px] text-ink-soft">
         <Repeat className="size-4 text-gold-deep" />
         <span>
-          <b className="text-ink">{e.name}</b> swapped out — approved swap, <b className="text-ink">{e.coverName}</b> is covering.
+          <b className="text-ink">{e.name}</b> swapped out on an approved swap, <b className="text-ink">{e.coverName}</b> is covering.
         </span>
       </li>
     );
@@ -557,7 +574,7 @@ function EntryRow({
                 />
                 {mins != null && (
                   <span className={cn("font-semibold", strikeLate ? "text-oxblood" : "text-sage")}>
-                    {mins <= 0 ? "before the start — not late" : `${mins} min late`}
+                    {mins <= 0 ? "before the start, not late" : `${mins} min late`}
                     {!strikeLate && mins > 0 && ` · within ${LATE_GRACE_MIN}-min grace`}
                   </span>
                 )}
@@ -651,7 +668,7 @@ function Signed({ d, tz }: { d: Data; tz: string }) {
         <div>
           <div className="eyebrow mb-1">{dayLabel(d.date)}</div>
           <h2 className="font-display text-[28px]">
-            {l.shift === "lunch" ? "Lunch" : "Dinner"} line-up · {clock12(l.callTime)}
+            {l.shift === "lunch" ? "Lunch" : "Dinner"} line up · {clock12(l.callTime)}
           </h2>
           {l.topics && <p className="mt-3 max-w-xl whitespace-pre-line text-[13.5px] leading-relaxed text-ink-soft">{l.topics}</p>}
         </div>
@@ -687,7 +704,7 @@ function Signed({ d, tz }: { d: Data; tz: string }) {
                     : e.arrival === "late"
                       ? `${clock12(e.arrivedAt)} · ${e.minutesLate} min${(e.minutesLate ?? 0) <= LATE_GRACE_MIN ? " (grace)" : ""}`
                       : e.arrival === "no_show"
-                        ? "No-show"
+                        ? "No show"
                         : e.arrival === "swapped_out"
                           ? `Swapped · ${e.coverName}`
                           : e.arrival === "swap_unapproved"
@@ -704,7 +721,7 @@ function Signed({ d, tz }: { d: Data; tz: string }) {
       </div>
       {d.actions.length > 0 && (
         <div className="space-y-2">
-          <div className="eyebrow !text-oxblood">Write-ups this line-up opened</div>
+          <div className="eyebrow !text-oxblood">Write ups this line up opened</div>
           {d.actions.map((a) => (
             <Link key={a.id} href={`/conduct/write-up/${a.id}`} className="flex items-center justify-between rounded-[2px] border border-oxblood/40 px-4 py-3 hover:bg-oxblood/5">
               <span className="flex items-center gap-2.5 text-[14px]">
@@ -717,9 +734,9 @@ function Signed({ d, tz }: { d: Data; tz: string }) {
         </div>
       )}
       <div>
-        <div className="eyebrow mb-2">Recorded at this line-up</div>
+        <div className="eyebrow mb-2">Recorded at this line up</div>
         {!d.events.length ? (
-          <Empty>No strikes — everyone on time and in uniform.</Empty>
+          <Empty>No strikes. Everyone on time and in uniform.</Empty>
         ) : (
           <ul className="divide-y divide-paper-line border-y rule">
             {d.events.map((e) => (
@@ -729,7 +746,7 @@ function Signed({ d, tz }: { d: Data; tz: string }) {
         )}
       </div>
       <Link href="/conduct" className="btn btn-line">
-        Open conduct for the store →
+        Open conduct for the store
       </Link>
     </div>
   );

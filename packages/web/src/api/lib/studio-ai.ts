@@ -1,6 +1,6 @@
 // The Studio's writer: turns a client's handed-over material and the audit brief into their program.
 // Every output is a draft. BLM reviews and approves before anything reaches the client.
-import { createGateway, generateText, Output } from "ai";
+import { createGateway, generateText, NoObjectGeneratedError, Output } from "ai";
 import dedent from "dedent";
 import { z } from "zod";
 import { SCHEMA_BY_TYPE, type ContentType } from "../../shared/library/schemas";
@@ -128,12 +128,74 @@ const TYPE_RULES: Record<ContentType, string> = {
   `,
 };
 
+/** Models sometimes return a nested value as a JSON string. Undo that before validating. */
+function unwrap(v: unknown): unknown {
+  if (typeof v === "string") {
+    const t = v.trim();
+    if ((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"))) {
+      try {
+        return unwrap(JSON.parse(t));
+      } catch {
+        return v;
+      }
+    }
+    return v;
+  }
+  if (Array.isArray(v)) return v.map(unwrap);
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, unwrap(x)]));
+  return v;
+}
+
+/** Structured output with one repair pass and one retry. */
+async function structured<S extends z.ZodTypeAny>(schema: S, args: { system?: string; prompt: string }): Promise<z.infer<S>> {
+  let last: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { output } = await generateText({ model: gateway(MODEL), ...args, output: Output.object({ schema }) });
+      return output as z.infer<S>;
+    } catch (e) {
+      last = e;
+      if (!NoObjectGeneratedError.isInstance(e) || !e.text) throw e;
+      try {
+        let raw = unwrap(JSON.parse(e.text)) as Record<string, unknown>;
+        // A whole answer wrapped in its own top level key: {"priorities": {"priorities": [...]}}
+        const keys = Object.keys(raw);
+        if (keys.length === 1 && raw[keys[0]!] && typeof raw[keys[0]!] === "object" && !Array.isArray(raw[keys[0]!]) && keys[0]! in (raw[keys[0]!] as object))
+          raw = raw[keys[0]!] as Record<string, unknown>;
+        const fixed = schema.safeParse(raw);
+        if (fixed.success) return fixed.data as z.infer<S>;
+      } catch {
+        // fall through to the retry
+      }
+    }
+  }
+  throw last;
+}
+
 /** Replace any dash that slipped through. */
 function clean<T>(v: T): T {
   if (typeof v === "string") return v.replace(/\s*[—–]\s*/g, ", ").replace(/\s-\s/g, ", ") as T;
   if (Array.isArray(v)) return v.map(clean) as T;
   if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, clean(x)])) as T;
   return v;
+}
+
+/** Models put the right answer in the same slot every time. Shuffle the choices so the answer key is not a pattern. */
+function shuffleAnswers(type: ContentType, item: Record<string, unknown>) {
+  if (type !== "quiz" || !Array.isArray(item.questions)) return item;
+  const questions = (item.questions as Record<string, unknown>[]).map((q) => {
+    const choices = q.choices as unknown[];
+    const answer = q.answer as number;
+    if (!Array.isArray(choices) || typeof answer !== "number" || choices.length <= 2) return q;
+    if (choices.some((c) => typeof c === "string" && /of the above/i.test(c))) return q;
+    const order = choices.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    return { ...q, choices: order.map((i) => choices[i]), answer: order.indexOf(answer) };
+  });
+  return { ...item, questions };
 }
 
 function refs(ctx: DraftContext) {
@@ -148,15 +210,13 @@ function refs(ctx: DraftContext) {
 /** Rewrite one standard item for this client. */
 export async function adaptItem(type: ContentType, current: unknown, ctx: DraftContext, instructions: string) {
   const schema = SCHEMA_BY_TYPE[type] as z.ZodTypeAny;
-  const { output } = await generateText({
-    model: gateway(MODEL),
-    system: VOICE,
-    output: Output.object({
-      schema: z.object({
-        item: schema,
-        note: z.string().default("").describe("Two or three sentences for the BLM reviewer: what changed, and anything the material did not cover."),
-      }),
+  const output = await structured(
+    z.object({
+      item: schema,
+      note: z.string().default("").describe("Two or three sentences for the BLM reviewer: what changed, and anything the material did not cover."),
     }),
+    {
+    system: VOICE,
     prompt: dedent`
       ${briefText(ctx)}
 
@@ -173,21 +233,19 @@ export async function adaptItem(type: ContentType, current: unknown, ctx: DraftC
       ${materialFor(type, ctx.sources)}
     `,
   });
-  return { item: clean(output.item) as Record<string, unknown>, note: clean(output.note) };
+  return { item: shuffleAnswers(type, clean(output.item) as Record<string, unknown>), note: clean(output.note) };
 }
 
 /** Write a brand new item: an extra quiz, a POS check, a repeatable drill, a module for their wine list. */
 export async function createItem(type: ContentType, ctx: DraftContext, instructions: string) {
   const schema = SCHEMA_BY_TYPE[type] as z.ZodTypeAny;
-  const { output } = await generateText({
-    model: gateway(MODEL),
-    system: VOICE,
-    output: Output.object({
-      schema: z.object({
-        item: schema,
-        note: z.string().default("").describe("Two or three sentences for the BLM reviewer about what this covers and any gaps in the material."),
-      }),
+  const output = await structured(
+    z.object({
+      item: schema,
+      note: z.string().default("").describe("Two or three sentences for the BLM reviewer about what this covers and any gaps in the material."),
     }),
+    {
+    system: VOICE,
     prompt: dedent`
       ${briefText(ctx)}
 
@@ -204,7 +262,7 @@ export async function createItem(type: ContentType, ctx: DraftContext, instructi
       ${materialFor(type, ctx.sources)}
     `,
   });
-  return { item: clean(output.item) as Record<string, unknown>, note: clean(output.note) };
+  return { item: shuffleAnswers(type, clean(output.item) as Record<string, unknown>), note: clean(output.note) };
 }
 
 /** A PDF or photo of a menu, wine list or manual, turned into clean text the drafts can quote from. */
@@ -234,17 +292,15 @@ export async function transcribe(file: { data: Buffer; mediaType: string; name: 
 
 /** Turn the audit notes into a ranked list of priorities. */
 export async function suggestPriorities(findings: string, preferences: string) {
-  const { output } = await generateText({
-    model: gateway(MODEL),
-    system: VOICE,
-    output: Output.object({
-      schema: z.object({
-        priorities: z
-          .array(z.object({ title: z.string().max(120), detail: z.string().max(400), weight: z.enum(["high", "medium", "low"]) }))
-          .min(3)
-          .max(8),
-      }),
+  const output = await structured(
+    z.object({
+      priorities: z
+        .array(z.object({ title: z.string().max(160), detail: z.string().max(600).describe("One or two sentences"), weight: z.enum(["high", "medium", "low"]) }))
+        .min(3)
+        .max(8),
     }),
+    {
+    system: VOICE,
     prompt: dedent`
       From these audit findings and owner preferences, write the priorities the program should push hardest,
       most important first. Each title is a short instruction ("Sell the bottle at tables of three or more").

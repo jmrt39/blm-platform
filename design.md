@@ -62,3 +62,12 @@ Reports (store / combined) · Stores & access · Line-up (today, run, signed) ·
 log a swap) · Write-up (signatures, owner approval, Terminated stamp).
 
 Front of house only — no kitchen roles, modules or reports.
+
+## Implementation Studio (BLM staff only)
+
+`/studio`, unlocked once per account with `BLM_STUDIO_CODE`. Its own dark header ("Implementation Studio · Staff only"),
+paper card body like the rest of the app. Clients list → client page with five tabs: Brief · Materials · Last year ·
+Build · Publish. Build is a board grouped by type (modules, quizzes, floor and skills, rewards, checklists, talking points)
+with status chips (BLM standard, AI draft, Edited, Approved, Excluded, "Still names 1906" in oxblood) and a side editor
+with Compare. Publish shows what the client will get and warns about items still written for 1906.
+Line up shows "On this day last year" (same weekday, 52 weeks back) and three rotating talking points.

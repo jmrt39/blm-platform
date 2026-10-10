@@ -232,7 +232,7 @@ export function MemberPage() {
             )}
           </div>
           {!onboarding.length ? (
-            <Empty>No onboarding plan — {m.name.split(" ")[0]} was here before The Platform.</Empty>
+            <Empty>No onboarding plan. {m.name.split(" ")[0]} was here before The Platform.</Empty>
           ) : (
             <div className="space-y-7">
               {phases.map((p) => {
