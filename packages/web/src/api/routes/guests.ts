@@ -11,6 +11,7 @@ import { isManagementRole } from "../../shared/domain";
 import { addDays } from "../lib/time";
 import { findNames, surveyStats } from "../lib/surveys";
 import { respondUrl, themesOf, toneOf, type ReviewLinks } from "../../shared/reviews";
+import { guardRecord, logPrivate, wallOpen } from "../lib/privacy";
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -53,9 +54,13 @@ export const guests = {
       const links = Object.fromEntries(
         (await db.select({ id: s.stores.id, reviewLinks: s.stores.reviewLinks }).from(s.stores).where(inArray(s.stores.id, scope))).map((x) => [x.id, (x.reviewLinks ?? {}) as ReviewLinks]),
       );
-      return rows
-        .filter((r) => !input.memberId || r.memberIds.includes(input.memberId))
-        .map((r) => ({ ...out(r, today), respondUrl: respondUrl(r.source, r.externalUrl, links[r.storeId]) }));
+      // Reviews naming staff are private. With the wall shut: unnamed reviews, tonight's pinned quote, and your own.
+      const open = await wallOpen(v);
+      const me = v.member?.id;
+      const visible = (r: (typeof rows)[number]) => open || !r.memberIds.length || r.pinnedOn === today || (!!me && r.memberIds.every((id) => id === me));
+      const picked = rows.filter((r) => !input.memberId || r.memberIds.includes(input.memberId));
+      if (open && picked.some((r) => r.memberIds.length)) await logPrivate(v, "reviews", { detail: "Guest reviews", headers: context.headers, dedupeMinutes: 10 });
+      return picked.filter(visible).map((r) => ({ ...out(r, today), respondUrl: respondUrl(r.source, r.externalUrl, links[r.storeId]) }));
     }),
 
   /** The home page card: the latest reviews with who they are tagged to, and the roster to tag from. */
@@ -84,6 +89,14 @@ export const guests = {
       (staff[m.storeId] ??= []).push({ id: m.id, name: m.name, role: m.role });
     const storeName = Object.fromEntries(stores.map((x) => [x.id, x.name]));
     const linksOf = Object.fromEntries(stores.map((x) => [x.id, (x.reviewLinks ?? {}) as ReviewLinks]));
+    // Reviews naming staff stay behind the wall; tonight's pinned quote is already public at line up.
+    const open = await wallOpen(v);
+    const hidden = open ? [] : rows.filter((r) => r.memberIds.length && r.pinnedOn !== today);
+    if (open && rows.some((r) => r.memberIds.length)) await logPrivate(v, "reviews", { detail: "Guest feedback inbox", headers: context.headers, dedupeMinutes: 10 });
+    if (hidden.length) {
+      const drop = new Set(hidden.map((r) => r.id));
+      for (let i = rows.length - 1; i >= 0; i--) if (drop.has(rows[i]!.id)) rows.splice(i, 1);
+    }
     const rated = rows.filter((r) => r.rating != null);
     const items = rows.map((r) => ({ ...out(r, today), storeName: storeName[r.storeId] ?? "", respondUrl: respondUrl(r.source, r.externalUrl, linksOf[r.storeId]) }));
     const opps = items.filter((f) => f.tone === "opportunity");
@@ -105,6 +118,8 @@ export const guests = {
       rated: rated.length,
       staff,
       today,
+      /** Reviews naming staff kept back until private records are open. */
+      hiddenNamed: hidden.length,
     };
   }),
 
@@ -254,6 +269,7 @@ export const guests = {
     const [m] = await db.select().from(s.members).where(eq(s.members.id, id));
     if (!m) throw new ORPCError("NOT_FOUND", { message: "Colleague not found." });
     assertStore(v, m.storeId);
+    await guardRecord(v, "reviews", m.id, context.headers);
     const today = businessDate(TZ);
     const rows = (
       await db

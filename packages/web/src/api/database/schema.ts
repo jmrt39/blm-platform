@@ -2,6 +2,7 @@ import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-or
 import type { ReviewLinks } from "../../shared/reviews";
 
 export * from "./auth-schema";
+export * from "./security-schema";
 
 const id = () =>
   text("id")

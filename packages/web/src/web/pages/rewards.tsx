@@ -14,6 +14,7 @@ import { BONUS_RULE, CONDUCT_BLOCK_RULE, PAYOUT_RULE } from "../../shared/metric
 import { errMsg, money, shortDay } from "../lib/format";
 import { PERIOD_WORD, STATUS_CHIP, STATUS_LABEL, Tick } from "../components/reward-checks";
 import { cn } from "../lib/utils";
+import { LockedNotice } from "../components/private";
 
 const COUNT_WORD = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
 
@@ -233,7 +234,9 @@ export default function RewardsPage() {
 
           <div className="mt-12">
             <SectionTitle>Awards given</SectionTitle>
-            {q.data!.history.length ? (
+            {q.data!.historyLocked ? (
+              <LockedNotice what="Awards and payouts">Who was paid what is private.</LockedNotice>
+            ) : q.data!.history.length ? (
               <table className="tbl">
                 <tbody>
                   {q.data!.history.map((h) => (

@@ -238,7 +238,7 @@ export default function MyRewardsPage() {
       </Page>
     );
   if (q.isLoading) return <Loading />;
-  if (q.error) return <ErrorNote error={q.error} />;
+  if (q.error) return <ErrorNote error={q.error} what="Their rewards and pay" />;
   const d = q.data!;
   const first = d.member.name.split(" ")[0];
   const rows = [...d.boards].sort((a, b) => STATE[a.state].order - STATE[b.state].order);

@@ -189,7 +189,7 @@ export function ConductSection({ memberId }: { memberId: string }) {
   const v = useViewer();
   const q = useConductMember(memberId);
   if (q.isLoading) return null;
-  if (q.error || !q.data) return <ErrorNote error={q.error} />;
+  if (q.error || !q.data) return <ErrorNote error={q.error} what="Their conduct record" />;
   const d = q.data;
   const r = d.rating;
   const seller = ["server", "sommelier", "bartender"].includes(d.member.role);

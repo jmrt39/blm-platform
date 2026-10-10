@@ -1,5 +1,7 @@
 // Implementation Studio: BLM staff turn each client's audit and material into their program.
 import { useState } from "react";
+import { InviteButton } from "../components/invite-card";
+import { useInviteOwner } from "../queries/account";
 import { Link, Route, Switch, useLocation } from "wouter";
 import { ArrowLeft, ArrowRight, KeyRound, LogOut, Plus, Trash2 } from "lucide-react";
 import { Monogram } from "../components/monogram";
@@ -189,6 +191,11 @@ function ClientsPage() {
 
 type StoreDraft = { name: string; city: string; ticketTarget: string };
 
+function InviteOwnerNow({ orgId, name }: { orgId: string; name: string }) {
+  const invite = useInviteOwner();
+  return <InviteButton className="mb-7 max-w-[620px]" who={name} run={() => invite.mutateAsync({ orgId })} />;
+}
+
 function NewClientPage() {
   const create = useCreateClient();
   const [, nav] = useLocation();
@@ -201,8 +208,9 @@ function NewClientPage() {
     return (
       <Page eyebrow="Client created" title={f.groupName}>
         <p className="mb-5 max-w-[680px] text-[14.5px] leading-relaxed text-ink-soft">
-          {f.ownerName} is invited as owner. When they sign in with {f.ownerEmail} they land in their group. Their stores are open now on the BLM standard program; nothing changes for them until you publish.
+          {f.ownerName} is on file as owner. Send the invite and they choose a password for {f.ownerEmail}, then land in their group. Their stores are open now on the BLM standard program; nothing changes for them until you publish.
         </p>
+        <InviteOwnerNow orgId={made.orgId} name={f.ownerName} />
         <table className="tbl mb-6 max-w-[620px]">
           <thead>
             <tr>

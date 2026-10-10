@@ -9,6 +9,8 @@ import { client } from "../lib/api";
 import { storeSession } from "../lib/store-session";
 import { errMsg } from "../lib/format";
 import { cn } from "../lib/utils";
+import { LegalCheck } from "./password";
+import { useAccountStatus } from "../queries/account";
 
 export function NoirScreen({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   return (
@@ -85,7 +87,10 @@ export function useStartDemo() {
 
 function EmailForm() {
   const qc = useQueryClient();
-  const [mode, setMode] = useState<"in" | "up">("in");
+  const [mode, setMode] = useState<"in" | "up" | "forgot">("in");
+  const [agree, setAgree] = useState(false);
+  const [sent, setSent] = useState(false);
+  const status = useAccountStatus();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -94,16 +99,68 @@ function EmailForm() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setBusy(true);
     setError("");
+    if (mode === "forgot") {
+      setBusy(true);
+      const r = await authClient.requestPasswordReset({ email, redirectTo: `${window.location.origin}/reset-password` });
+      setBusy(false);
+      if (r.error) return setError(r.error.message ?? "Couldn't send the link.");
+      return setSent(true);
+    }
+    if (mode === "up" && !agree) return setError("Agree to the Terms and the Privacy Policy to create an account.");
+    setBusy(true);
     const res =
       mode === "in"
         ? await authClient.signIn.email({ email, password }, captureToken)
         : await authClient.signUp.email({ email, password, name: name || email.split("@")[0]! }, captureToken);
+    if (res.error) {
+      setBusy(false);
+      const exists = mode === "up" && /exist/i.test(res.error.message ?? "");
+      return setError(
+        exists
+          ? "There's already an account for this email. If you were invited, use the link in your invite, or choose Forgot password."
+          : (res.error.message ?? "Couldn't sign you in."),
+      );
+    }
+    if (mode === "up") await client.account.acceptLegal().catch(() => null);
     setBusy(false);
-    if (res.error) return setError(res.error.message ?? "Couldn't sign you in.");
     await qc.invalidateQueries();
   };
+
+  if (mode === "forgot")
+    return (
+      <div className="space-y-4">
+        <div className="font-display text-[20px] text-ivory">Forgot your password</div>
+        {sent ? (
+          <p className="text-[13px] leading-relaxed text-[#b9b0a3]">
+            If there's an account for <b className="text-ivory">{email}</b>, a link to choose a new password is on its way. It works for one hour.
+          </p>
+        ) : status.data && !status.data.email ? (
+          <p className="text-[13px] leading-relaxed text-[#b9b0a3]">
+            Email isn't switched on yet. Ask your owner or GM: they can make you a reset link from your profile on the Team page.
+          </p>
+        ) : (
+          <form onSubmit={submit} className="space-y-3">
+            <p className="text-[13px] leading-relaxed text-[#b9b0a3]">Enter the email you sign in with and we'll send a link to choose a new one.</p>
+            <input aria-label="Email" className="field-noir" type="email" placeholder="Email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            {error && <div className="text-[13px] text-[#e08b84]">{error}</div>}
+            <button disabled={busy} className="btn btn-gold h-11 w-full">
+              {busy ? "One moment…" : "Email me a link"} <ArrowRight className="size-4" />
+            </button>
+          </form>
+        )}
+        <button
+          className="text-[12.5px] font-semibold text-gold hover:underline"
+          onClick={() => {
+            setMode("in");
+            setSent(false);
+            setError("");
+          }}
+        >
+          Back to sign in
+        </button>
+      </div>
+    );
 
   const google = async () => {
     setError("");
@@ -133,10 +190,16 @@ function EmailForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+        {mode === "up" && <LegalCheck checked={agree} onChange={setAgree} />}
         {error && <div className="text-[13px] text-[#e08b84]">{error}</div>}
         <button disabled={busy} className="btn btn-gold h-11 w-full">
           {busy ? "One moment…" : mode === "in" ? "Sign in" : "Create account"} <ArrowRight className="size-4" />
         </button>
+        {mode === "in" && (
+          <button type="button" className="block w-full text-right text-[12px] text-[#8b8277] hover:text-gold" onClick={() => (setMode("forgot"), setError(""))}>
+            Forgot password?
+          </button>
+        )}
       </form>
       <div className="text-center text-[12.5px] text-[#8b8277]">
         {mode === "in" ? "New to The Platform? " : "Already have an account? "}
@@ -243,6 +306,17 @@ export default function SignIn() {
         </button>
         {demo.error && <div className="mt-2 text-[12.5px] text-[#e08b84]">{demo.error}</div>}
       </div>
+      <p className="mt-6 text-center text-[11.5px] leading-relaxed text-[#6d655b]">
+        By signing in you agree to the{" "}
+        <a href="/terms" className="underline-offset-2 hover:text-gold hover:underline">
+          Terms of Service
+        </a>{" "}
+        and the{" "}
+        <a href="/privacy" className="underline-offset-2 hover:text-gold hover:underline">
+          Privacy Policy
+        </a>
+        .
+      </p>
     </NoirScreen>
   );
 }

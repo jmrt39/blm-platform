@@ -31,6 +31,7 @@ import {
 import { ROLE_LABEL } from "../../shared/domain";
 import { dayLabel, errMsg, shortDay, timeOf } from "../lib/format";
 import { cn } from "../lib/utils";
+import { LockedNotice } from "../components/private";
 
 type Data = NonNullable<ReturnType<typeof useLineup>["data"]>;
 type Entry = Data["entries"][number];
@@ -151,6 +152,11 @@ function NotStarted({ d, shift }: { d: Data; shift: Shift }) {
         )}
       </div>
       <aside className="space-y-6">
+        {d.conductLocked && (
+          <LockedNotice what="Strikes, steps and write ups" className="rounded-[2px] border rule p-4">
+            Strikes, steps and signatures waiting are private.
+          </LockedNotice>
+        )}
         {d.pending.length > 0 && (
           <div className="rounded-[2px] border border-oxblood/30 p-5">
             <div className="eyebrow mb-2 !text-oxblood">Waiting for a signature</div>
@@ -223,6 +229,11 @@ function Running({ d, tz }: { d: Data; tz: string }) {
 
   return (
     <div className="space-y-10">
+      {d.conductLocked && (
+        <LockedNotice what="Strikes and steps">
+          Each person's strikes and step are private. Marking arrivals and dress code still works.
+        </LockedNotice>
+      )}
       <div className="grid gap-6 md:grid-cols-[auto_1fr]">
         <div className="flex gap-6 md:border-r md:pr-8 rule">
           <div>

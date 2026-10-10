@@ -6,6 +6,8 @@ import { Empty } from "../components/bits";
 import { useAddAreaManager, useCreateStore, useLeadership, useRemoveAreaManager, useStores, useUpdateAreaManager, useUpdateStore } from "../queries/stores";
 import { ROLE_LABEL, type StoreRole } from "../../shared/domain";
 import { errMsg, money } from "../lib/format";
+import { InviteButton } from "../components/invite-card";
+import { useInviteAccess } from "../queries/account";
 import { BAR_TARGET_SHARE, DEFAULT_TICKET_TARGET } from "../../shared/metrics";
 import { PLATFORM_INFO, REVIEW_PLATFORMS, type ReviewLinks } from "../../shared/reviews";
 
@@ -318,6 +320,7 @@ function Leadership({ stores }: { stores: StoreRow[] }) {
   const add = useAddAreaManager();
   const upd = useUpdateAreaManager();
   const del = useRemoveAreaManager();
+  const invite = useInviteAccess();
   const [f, setF] = useState({ name: "", email: "", storeIds: [] as string[] });
   const toggle = (list: string[], id: string) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   return (
@@ -327,7 +330,7 @@ function Leadership({ stores }: { stores: StoreRow[] }) {
           <div className="eyebrow">Leadership</div>
           <h2 className="font-display text-[28px] text-ink">Area managers</h2>
         </div>
-        <p className="max-w-sm text-right text-[12px] text-ink-soft">They sign in with this email (password or Google) and see only the stores ticked here.</p>
+        <p className="max-w-sm text-right text-[12px] text-ink-soft">Invite them and they choose a password for this email. They see only the stores ticked here.</p>
       </div>
       {q.isLoading ? (
         <Loading />
@@ -338,8 +341,9 @@ function Leadership({ stores }: { stores: StoreRow[] }) {
               <div className="min-w-[200px]">
                 <div className="font-semibold text-ink">{a.name}</div>
                 <div className="text-[12px] text-ink-soft">
-                  {a.email} · {a.role === "owner" ? "Owner" : "Area manager"} {a.linked ? "" : "· not signed in yet"}
+                  {a.email} · {a.role === "owner" ? "Owner" : "Area manager"} {a.linked ? "" : "· no account yet"}
                 </div>
+                {!a.linked && a.email && <InviteButton className="mt-2" who={a.name} run={() => invite.mutateAsync({ accessId: a.id })} />}
               </div>
               {a.role === "owner" ? (
                 <span className="chip">All stores</span>

@@ -7,6 +7,7 @@ import { assertStore, managerBase, viewerBase, type Viewer } from "../lib/access
 import { today } from "../lib/conduct";
 import { isOpenPlan, normalizeChecks, planPrefill, planView } from "../lib/plans";
 import { PLAN_CHECKS, PLAN_MODES, planScore, planShiftMet } from "../../shared/conduct";
+import { guardRecord } from "../lib/privacy";
 
 const sig = z.string().min(10).max(20000);
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -33,6 +34,7 @@ export const plans = {
   get: viewerBase.input(z.object({ actionId: z.string() })).handler(async ({ input, context }) => {
     const v = context.viewer;
     const a = await loadPlan(v, input.actionId);
+    await guardRecord(v, "conduct", a.memberId, context.headers);
     const view = planView(a, await shiftsOf(a.id));
     return {
       ...view,

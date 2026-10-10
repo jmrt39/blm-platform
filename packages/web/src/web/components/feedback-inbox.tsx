@@ -10,6 +10,7 @@ import { ROLE_LABEL, isManagementRole } from "../../shared/domain";
 import { HOW_LABEL, soundsAboveBeyond } from "../../shared/name-match";
 import { shortDay } from "../lib/format";
 import { cn } from "../lib/utils";
+import { LockedNotice } from "./private";
 
 type Inbox = NonNullable<ReturnType<typeof useFeedbackInbox>["data"]>;
 type Item = Inbox["items"][number];
@@ -233,6 +234,12 @@ export function FeedbackInbox({ storeId, showStore }: { storeId: string | null; 
           </button>
         </div>
       </div>
+
+      {d.hiddenNamed > 0 && (
+        <LockedNotice what="Reviews naming staff" className="border-t rule px-5 py-3 md:px-6">
+          {d.hiddenNamed} review{d.hiddenNamed === 1 ? " names" : "s name"} someone on the team and {d.hiddenNamed === 1 ? "is" : "are"} kept private.
+        </LockedNotice>
+      )}
 
       {!open && d.items.length > 0 && (
         <div className="grid border-t rule md:grid-cols-2">

@@ -22,6 +22,8 @@ export type Viewer = {
   accessRole: string;
   /** True when the demo owner is previewing as a colleague. */
   viewingAs: boolean;
+  /** The account sign in behind this request, when there is one. */
+  sessionId: string | null;
 };
 
 export type ViewerState =
@@ -34,7 +36,13 @@ export type ViewerState =
     }
   | ({ kind: "ready" } & Viewer);
 
+/**
+ * Attach a roster entry or leadership access waiting on this email. Only for a proven inbox
+ * (Google sign in, or an invite link used): anyone can type someone else's address at sign up.
+ */
 async function linkByEmail(user: { id: string; email: string }) {
+  const [u] = await db.select({ verified: s.user.emailVerified }).from(s.user).where(eq(s.user.id, user.id));
+  if (!u?.verified) return;
   const email = user.email.toLowerCase();
   await db
     .update(s.orgAccess)
@@ -47,6 +55,7 @@ async function linkByEmail(user: { id: string; email: string }) {
 export async function resolveViewer(headers: Headers): Promise<ViewerState> {
   const session = await auth.api.getSession({ headers }).catch(() => null);
   const user = session?.user ? { id: session.user.id, name: session.user.name, email: session.user.email } : null;
+  const sessionId = session?.session.id ?? null;
   const token = headers.get(STORE_HEADER);
 
   if (token) {
@@ -70,6 +79,7 @@ export async function resolveViewer(headers: Headers): Promise<ViewerState> {
           accessName: member.name,
           accessRole: member.role,
           viewingAs: ss.method === "demo",
+          sessionId: ss.userId ? sessionId : org.isDemo ? `store:${ss.token.slice(0, 12)}` : null,
         };
       }
     }
@@ -103,6 +113,7 @@ export async function resolveViewer(headers: Headers): Promise<ViewerState> {
         accessName: access.name || user.name,
         accessRole: access.role,
         viewingAs: false,
+        sessionId,
       };
     }
   }

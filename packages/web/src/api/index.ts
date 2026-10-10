@@ -25,6 +25,10 @@ import { studio } from "./routes/studio";
 import { history } from "./routes/history";
 import { plans } from "./routes/plans";
 import { intake } from "./routes/intake";
+import { account } from "./routes/account";
+import { privacy } from "./routes/privacy";
+import { backups } from "./routes/backups";
+import { runNightly, startNightlyTimer } from "./lib/backups";
 
 export const router = {
   ping,
@@ -51,6 +55,9 @@ export const router = {
   history,
   plans,
   intake,
+  account,
+  privacy,
+  backups,
 };
 
 export type AppRouter = typeof router;
@@ -59,5 +66,15 @@ export type AppRouterClient = RouterClient<AppRouter>;
 
 const app = createApp(router);
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+
+/** Nightly jobs (backups for now). Point a daily cron at it with the CRON_SECRET as a bearer token. */
+app.post("/api/cron/nightly", async (c) => {
+  const secret = process.env.CRON_SECRET;
+  const got = c.req.header("authorization")?.replace(/^Bearer\s+/i, "") ?? c.req.header("x-cron-secret");
+  if (!secret || got !== secret) return c.json({ error: "unauthorized" }, 401);
+  return c.json(await runNightly(), 200);
+});
+
+startNightlyTimer();
 
 export default app;

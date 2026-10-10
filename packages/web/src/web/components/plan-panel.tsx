@@ -15,7 +15,7 @@ const JUDGED: readonly PlanCheck[] = ["standards", "improvement"];
 export function PlanPanel({ actionId, firstName }: { actionId: string; firstName: string }) {
   const q = usePlan(actionId);
   if (q.isLoading) return <div className="text-[13px] text-ink-soft">Loading the plan…</div>;
-  if (q.error || !q.data) return <ErrorNote error={q.error} />;
+  if (q.error || !q.data) return <ErrorNote error={q.error} what="The plan" />;
   const p = q.data;
   const pct = Math.round((p.progress.count / PLAN_SHIFTS) * 100);
 

@@ -37,7 +37,7 @@ export default function WriteUpPage() {
   const onMgr = useCallback((_: string, s: string) => setMgrSig(s), []);
   const onEmp = useCallback((_: string, s: string) => setEmpSig(s), []);
   if (q.isLoading) return <Loading />;
-  if (q.error || !q.data) return <ErrorNote error={q.error} />;
+  if (q.error || !q.data) return <ErrorNote error={q.error} what="This write up" />;
   const { action: a, events, member, store, history, can } = q.data;
   const when = stamp(store?.timezone ?? "America/New_York");
   const rank = STEPS.indexOf(a.step);

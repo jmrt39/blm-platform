@@ -62,7 +62,7 @@ function ManagerConduct() {
       {q.isLoading ? (
         <Loading />
       ) : q.error || !d ? (
-        <ErrorNote error={q.error} />
+        <ErrorNote error={q.error} what="The conduct record" />
       ) : (
         <div className="space-y-12">
           <div className="grid grid-cols-2 gap-6 border-b rule pb-8 md:grid-cols-6">

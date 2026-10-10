@@ -2,7 +2,7 @@ import { CASH_BONUS, EMPLOYMENT, EMPLOYMENT_LABEL, MIN_SHIFTS, ROLLING_DAYS, SHI
 import { useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { motion } from "motion/react";
-import { ArrowRight, BookOpen, Check, GraduationCap, Star, UserPlus } from "lucide-react";
+import { ArrowRight, BookOpen, Check, GraduationCap, Lock, Star, UserPlus } from "lucide-react";
 import { Page, Loading, ErrorNote } from "../components/shell";
 import { useViewer } from "../components/viewer";
 import { Bar, Empty, Seg, Spark, Stat } from "../components/bits";
@@ -19,6 +19,8 @@ import { useMemberCerts } from "../queries/certs";
 import { useHourGoal, useSetHourGoal } from "../queries/slow";
 import type { CertKind } from "../../shared/program";
 import { cn } from "../lib/utils";
+import { LockedNotice, isPrivate } from "../components/private";
+import { InviteNow, MemberAccess } from "../components/invite-card";
 
 type Rolling = NonNullable<NonNullable<ReturnType<typeof useMember>["data"]>["rolling"]>;
 function rewardStanding(r: Rolling) {
@@ -73,6 +75,7 @@ export function TeamPage() {
   const q = useTeam(scope);
   const conduct = useConductOverview(scope, v.isManager);
   const standing = new Map((v.isManager ? (conduct.data?.people ?? []) : []).map((p) => [p.id, p]));
+  const conductLocked = v.isManager && isPrivate(conduct.error);
   const [filter, setFilter] = useState<"all" | "mgmt" | "staff" | "new">("all");
   const rows = (q.data ?? []).filter((m) =>
     filter === "all" ? true : filter === "mgmt" ? isManagementRole(m.role) : filter === "staff" ? !isManagementRole(m.role) : m.tenureDays <= 90,
@@ -108,6 +111,11 @@ export function TeamPage() {
         />
         <div className="text-[12px] text-ink-soft">Spend per ticket: last {ROLLING_DAYS} days, solo serving shifts only, against each person's own target</div>
       </div>
+      {conductLocked && (
+        <LockedNotice what="Ratings and strikes" className="mb-4">
+          Ratings and strikes are private.
+        </LockedNotice>
+      )}
       {q.isLoading ? (
         <Loading />
       ) : q.error ? (
@@ -175,10 +183,10 @@ export function TeamPage() {
                   </td>
                   {v.isManager && (
                     <td className="r" title={ratingLabel(standing.get(m.id)?.rating?.overall)}>
-                      <RatingFigure value={standing.get(m.id)?.rating?.overall} className="text-[18px]" />
+                      {conductLocked ? <Lock aria-label="Private" className="ml-auto size-3.5 text-ink-soft" /> : <RatingFigure value={standing.get(m.id)?.rating?.overall} className="text-[18px]" />}
                     </td>
                   )}
-                  {v.isManager && <td>{standing.get(m.id)?.strikes ? <StrikeDots n={standing.get(m.id)!.strikes} /> : <span className="text-[12px] text-ink-soft">·</span>}</td>}
+                  {v.isManager && <td>{conductLocked ? <Lock aria-label="Private" className="size-3.5 text-ink-soft" /> : standing.get(m.id)?.strikes ? <StrikeDots n={standing.get(m.id)!.strikes} /> : <span className="text-[12px] text-ink-soft">·</span>}</td>}
                   <td className="w-44">
                     {m.onboarding && m.onboarding.done < m.onboarding.total ? (
                       <div>
@@ -259,7 +267,12 @@ export function MemberPage() {
   const [, nav] = useLocation();
   if (q.isLoading) return <Loading />;
   if (q.error || !q.data) return <ErrorNote error={q.error} />;
-  const { member: m, store, onboarding, sales, tenureDays, today, canManage, checklistLinesInitialled, targets, rolling } = q.data;
+  const { member: m, store, onboarding, sales, tenureDays, today, canManage, checklistLinesInitialled, targets, rolling, contactLocked } = q.data;
+  const privateMark = (
+    <span className="inline-flex items-center gap-1.5 text-ink-soft">
+      <Lock className="size-3.5 text-gold-deep" /> Private
+    </span>
+  );
   const solo = sales.filter((s) => s.counted);
   const totalSales = solo.reduce((a, s) => a + s.netSales, 0);
   const covers = solo.reduce((a, s) => a + s.covers, 0);
@@ -419,8 +432,8 @@ export function MemberPage() {
               <Row k="Store">
                 {store.name} · {store.number}
               </Row>
-              <Row k="Email">{m.email ?? "·"}</Row>
-              <Row k="Phone">{m.phone ?? "·"}</Row>
+              <Row k="Email">{contactLocked && m.hasEmail ? privateMark : (m.email ?? "·")}</Row>
+              <Row k="Phone">{contactLocked && m.hasPhone ? privateMark : (m.phone ?? "·")}</Row>
               <Row k="Hours">{EMPLOYMENT_LABEL[m.employment]}</Row>
               {seller && (
                 <Row k="Targets">
@@ -439,7 +452,15 @@ export function MemberPage() {
                 </Row>
               )}
             </dl>
+            {contactLocked && (m.hasEmail || m.hasPhone) && canManage && (
+              <LockedNotice what="Contact details" className="mt-3">
+                Contact details are private.
+              </LockedNotice>
+            )}
           </div>
+          {canManage && v.me.member?.id !== m.id && isManagementRole(m.role) && (
+            <MemberAccess memberId={m.id} name={m.name} hasAccount={m.hasAccount} hasEmail={m.hasEmail} />
+          )}
           {canManage && v.me.member?.id !== m.id && (
             <div className="space-y-2">
               <div className="eyebrow mb-2">Manage</div>
@@ -644,12 +665,7 @@ export function AddColleague() {
             </div>
             <div className="mt-3 text-[12px] text-[#8b8277]">The PIN only works at this store.</div>
           </div>
-          {isManagementRole(f.role) && f.email && (
-            <div className="mb-7 rounded-[2px] border border-gold-deep/50 p-5 text-[14px] leading-relaxed">
-              <div className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] text-gold">Manager tools</div>
-              The app does not send emails yet, so tell {f.name.split(" ")[0]} yourself: open <b>{window.location.origin}</b>, choose create an account, and use <b>{f.email}</b>. Their manager tools open as soon as they sign in with that email.
-            </div>
-          )}
+          {isManagementRole(f.role) && f.email && <InviteNow memberId={done.id} name={f.name} />}
           <div className="flex gap-2">
             <Link href={`/team/${done.id}`} className="btn btn-ink">
               Open their 30/60/90

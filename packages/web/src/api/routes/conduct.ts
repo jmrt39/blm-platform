@@ -11,6 +11,7 @@ import { presignPut, screenshotUrl } from "../lib/s3";
 import { demoShot } from "../lib/demo-shot";
 import { SHIFTS, SHIFT_LABEL, STEP_LABEL, clock12, nextOnLadder } from "../../shared/conduct";
 import { isManagementRole } from "../../shared/domain";
+import { guardRecord, requireOpen } from "../lib/privacy";
 
 const sig = z.string().min(10).max(20000);
 const hhmm = z.string().regex(/^\d{2}:\d{2}$/);
@@ -51,6 +52,7 @@ export const conduct = {
   /** Store (or combined) view: everyone's strikes, step and rating, plus what needs attention. */
   overview: managerBase.input(z.object({ storeId: z.string().nullish() })).handler(async ({ input, context }) => {
     const v = context.viewer;
+    await requireOpen(v, "conduct", { detail: "Conduct board", headers: context.headers });
     const storeIds = scopeIds(v, input.storeId);
     if (!storeIds.length) return null;
     const stores = await db.select().from(s.stores).where(inArray(s.stores.id, storeIds));
@@ -147,6 +149,7 @@ export const conduct = {
     const [m] = await db.select().from(s.members).where(eq(s.members.id, input.id));
     if (!m) throw new ORPCError("NOT_FOUND");
     assertCanSee(v, m.id, m.storeId);
+    await guardRecord(v, "conduct", m.id, context.headers);
     const from = memberFrom(m, windowStart());
     const events = (
       await db
@@ -366,6 +369,7 @@ export const conduct = {
   getAction: viewerBase.input(z.object({ id: z.string() })).handler(async ({ input, context }) => {
     const v = context.viewer;
     const a = await loadAction(v, input.id);
+    await guardRecord(v, "conduct", a.memberId, context.headers);
     const events = a.eventIds.length ? await db.select().from(s.conductEvents).where(inArray(s.conductEvents.id, a.eventIds)) : [];
     const [m] = await db.select().from(s.members).where(eq(s.members.id, a.memberId));
     const [store] = await db.select().from(s.stores).where(eq(s.stores.id, a.storeId));

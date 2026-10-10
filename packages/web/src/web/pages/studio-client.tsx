@@ -20,6 +20,8 @@ import { cn } from "../lib/utils";
 import { StudioBoard } from "../components/studio-board";
 import { IntakeTab } from "../components/studio-intake";
 import { when } from "./studio";
+import { InviteButton } from "../components/invite-card";
+import { useInviteOwner } from "../queries/account";
 
 export type Build = NonNullable<ReturnType<typeof useStudioBuild>["data"]>;
 type Brief = Build["impl"]["brief"];
@@ -565,6 +567,8 @@ function HistoryImport({ store }: { store: Build["stores"][number] }) {
 
 function PublishTab({ b, onBuild }: { b: Build; onBuild: () => void }) {
   const pub = usePublishProgram();
+  const invite = useInviteOwner();
+  const owner = b.owners[0];
   const [result, setResult] = useState<{ version: number } | null>(null);
   const drafts = b.items.filter((i) => i.status === "draft");
   const foreign = b.items.filter((i) => i.foreign && i.status === "approved");
@@ -628,6 +632,23 @@ function PublishTab({ b, onBuild }: { b: Build; onBuild: () => void }) {
         >
           {pub.isPending ? "Publishing…" : b.busy ? "Waiting for drafts to finish" : b.program ? `Publish version ${b.program.version + 1}` : "Publish the program"}
         </button>
+        <div className="mt-6 border-t border-paper-line pt-5">
+          <div className="eyebrow mb-2">Owner account</div>
+          {!owner?.email ? (
+            <p className="text-[13px] text-ink-soft">No owner email on file. Add it on the Intake tab.</p>
+          ) : owner.linked ? (
+            <p className="text-[13px] text-ink-soft">
+              {owner.name} signs in as {owner.email}.
+            </p>
+          ) : (
+            <>
+              <p className="text-[13px] leading-relaxed text-ink-soft">
+                {owner.name} has no account yet. Invite {owner.email} and they choose their own password.
+              </p>
+              <InviteButton className="mt-3" who={owner.name} run={() => invite.mutateAsync({ orgId: b.org.id })} />
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { logPrivate, wallOpen } from "../lib/privacy";
 import { z } from "zod";
 import { ORPCError } from "@orpc/server";
 import { and, desc, eq, gte, inArray } from "drizzle-orm";
@@ -99,18 +100,22 @@ export const lineups = {
             .filter((a) => a.eventIds.some((id) => eventIds.has(id)))
             .map(({ eventIds: _e, ...a }) => a)
         : [];
+      // Strike counts, steps and write ups are conduct records: shown only with private records open.
+      const conductOpen = await wallOpen(context.viewer);
+      if (conductOpen && (pending.length || actions.length)) await logPrivate(context.viewer, "conduct", { detail: "Line up standings", headers: context.headers, dedupeMinutes: 10 });
       return {
         store: { id: store.id, name: store.name, number: store.number, timezone: store.timezone },
         events,
-        actions,
+        actions: conductOpen ? actions : [],
+        conductLocked: !conductOpen,
         date,
         isToday: date === businessDate(store.timezone),
         lineup: l ?? null,
         entries,
         roster,
         swaps,
-        pending,
-        standing,
+        pending: conductOpen ? pending : [],
+        standing: conductOpen ? standing : ({} as typeof standing),
         recent: recent.map((r) => ({ id: r.id, date: r.businessDate, shift: r.shift, status: r.status, runByName: r.runByName })),
         uniformItems: UNIFORM_ITEMS,
       };

@@ -5,7 +5,7 @@ import { db } from "../database";
 import * as s from "../database/schema";
 import { loadStore, managerBase, viewerBase } from "../lib/access";
 import { businessDate } from "../lib/time";
-import { rewardsBoard } from "../lib/program";
+import { rewardsBoard, type RewardCheck, type RewardEntry } from "../lib/program";
 import { TZ, viewerName } from "../lib/program-access";
 import { surveyStats } from "../lib/surveys";
 import { addDays } from "../lib/time";
@@ -16,6 +16,19 @@ import { perfLines, rollingFrom } from "../lib/perf";
 import { quarterOf } from "../../shared/program";
 import { RAMP_DAYS } from "../../shared/metrics";
 import { rolesList } from "../../shared/domain";
+import { guardRecord, logPrivate, wallOpen } from "../lib/privacy";
+
+const PRIVATE_WHY = "Not eligible this period";
+function scrubConduct(e: RewardEntry) {
+  const hide = (c: RewardCheck) => (c.short === "Conduct" ? { ...c, value: "private", miss: c.miss ? PRIVATE_WHY : undefined } : c);
+  if (e.blocked) {
+    e.note = undefined;
+    e.why = PRIVATE_WHY;
+  }
+  if (e.why?.startsWith("Conduct")) e.why = PRIVATE_WHY;
+  e.checks = e.checks?.map(hide);
+  if (e.upcoming) e.upcoming = { ...e.upcoming, why: e.upcoming.why?.startsWith("Conduct") ? PRIVATE_WHY : e.upcoming.why, checks: e.upcoming.checks.map(hide) };
+}
 
 export const rewards = {
   /** The eight incentives, with who is eligible or leading for each this period. */
@@ -24,13 +37,16 @@ export const rewards = {
     const store = await loadStore(v, input.storeId);
     const today = businessDate(store.timezone);
     const boards = await rewardsBoard(await loadLibrary(v.orgId), store, today);
-    const history = await db
-      .select()
-      .from(s.rewardAwards)
-      .where(eq(s.rewardAwards.storeId, store.id))
-      .orderBy(desc(s.rewardAwards.awardedAt))
-      .limit(40);
+    // A colleague held back by a write up must not show why to the rest of the floor.
+    if (!(await wallOpen(v))) for (const b of boards) for (const e of b.entries) if (e.memberId !== v.member?.id) scrubConduct(e);
+    // Who was paid what is private: the board shows it only with private records open.
+    const payOpen = await wallOpen(v);
+    if (payOpen) await logPrivate(v, "pay", { detail: "Awards given", headers: context.headers, dedupeMinutes: 10 });
+    const history = payOpen
+      ? await db.select().from(s.rewardAwards).where(eq(s.rewardAwards.storeId, store.id)).orderBy(desc(s.rewardAwards.awardedAt)).limit(40)
+      : [];
     return {
+      historyLocked: !payOpen,
       store: { id: store.id, name: store.name, ticketTarget: store.ticketTarget },
       today,
       boards,
@@ -49,6 +65,7 @@ export const rewards = {
     const [m] = await db.select().from(s.members).where(eq(s.members.id, id));
     if (!m) throw new ORPCError("NOT_FOUND", { message: "Colleague not found." });
     const store = await loadStore(v, m.storeId);
+    await guardRecord(v, "pay", m.id, context.headers);
     const today = businessDate(store.timezone);
     const lib = await loadLibrary(v.orgId);
     const q = quarterOf(today);

@@ -32,6 +32,9 @@ import CertsPage from "./pages/certs";
 import LogbookPage, { LogEntryPage } from "./pages/logbook";
 import SlowNightPage from "./pages/slow";
 import StudioApp from "./pages/studio";
+import { PrivacyPolicy, TermsOfService } from "./pages/legal";
+import { ResetPasswordPage, SetPasswordPage } from "./pages/password";
+import SecurityPage from "./pages/security";
 
 function Splash() {
   return (
@@ -50,11 +53,22 @@ function NotFound() {
   return <Loading />;
 }
 
+/** Pages anyone can open, signed in or not. */
+const PUBLIC: Record<string, () => React.ReactElement> = {
+  "/privacy": PrivacyPolicy,
+  "/terms": TermsOfService,
+  "/set-password": SetPasswordPage,
+  "/reset-password": ResetPasswordPage,
+};
+
 function Gate() {
   const [booted, setBooted] = useState(false);
+  const [loc] = useLocation();
   useEffect(() => {
     void redirectReady.then(() => setBooted(true));
   }, []);
+  const Public = PUBLIC[loc];
+  if (Public) return <Public />;
   return booted ? <Routes /> : <Splash />;
 }
 
@@ -111,6 +125,7 @@ function Routes() {
           <Route path="/logbook" component={LogbookPage} />
           <Route path="/logbook/:id" component={LogEntryPage} />
           <Route path="/slow" component={SlowNightPage} />
+          <Route path="/security" component={SecurityPage} />
           <Route component={NotFound} />
         </Switch>
       </Shell>

@@ -10,6 +10,7 @@ import { storeSession } from "../lib/store-session";
 import { ROLE_LABEL } from "../../shared/domain";
 import { cn } from "../lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { PrivacyBadge, UnlockPanel, isPrivate } from "./private";
 
 type NavItem = { href: string; label: string };
 
@@ -251,6 +252,11 @@ function UserChip() {
                 My profile
               </Link>
             )}
+            {(v.me.level === "owner" || (v.me.level === "manager" && v.me.member?.role === "gm")) && (
+              <Link href="/security" onClick={() => setOpen(false)} className="block rounded-[2px] px-3 py-2 text-[13px] text-ivory hover:bg-noir">
+                Private records and backups
+              </Link>
+            )}
             {studio.data?.staff && (
               <Link href="/studio" onClick={() => setOpen(false)} className="block rounded-[2px] px-3 py-2 text-[13px] text-gold hover:bg-noir">
                 Implementation Studio
@@ -306,6 +312,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             {v.me.isDemo && <DemoLabel className="hidden whitespace-nowrap 2xl:inline-flex" />}
             <ViewAsSwitcher />
+            <PrivacyBadge />
             <UserChip />
             <button className="text-ivory xl:hidden" onClick={() => setMobile((m) => !m)} aria-label="Menu">
               {mobile ? <X className="size-5" /> : <Menu className="size-5" />}
@@ -348,6 +355,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </main>
       <footer className="mx-auto flex max-w-[1280px] items-center gap-3 px-6 pb-16 pt-4 text-[11px] text-[#6d655b]">
         <Monogram size={18} /> The Platform · Bottom Line Multiplied · Front of house
+        <span className="ml-auto flex gap-4">
+          <a href="/privacy" className="hover:text-gold">
+            Privacy
+          </a>
+          <a href="/terms" className="hover:text-gold">
+            Terms
+          </a>
+        </span>
       </footer>
     </div>
   );
@@ -397,8 +412,9 @@ export function Loading({ label = "Loading" }: { label?: string }) {
   );
 }
 
-export function ErrorNote({ error }: { error: unknown }) {
+export function ErrorNote({ error, what }: { error: unknown; what?: string }) {
   if (!error) return null;
+  if (isPrivate(error)) return <UnlockPanel what={what} />;
   const m = error && typeof error === "object" && "message" in error ? String((error as { message: string }).message) : "Something went wrong.";
   return <div className="rounded-[2px] border border-oxblood/40 bg-oxblood/5 px-3 py-2 text-[13px] text-oxblood">{m}</div>;
 }

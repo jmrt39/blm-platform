@@ -10,6 +10,7 @@ import { initialsOf, isManagementRole, onboardingLink, STORE_ROLES } from "../..
 import { loadLibrary } from "../lib/library";
 import { PASS_MARK } from "../../shared/program";
 import { EMPLOYMENT, isCounted, targetGrid } from "../../shared/metrics";
+import { logPrivate, privateError, wallOpen } from "../lib/privacy";
 import { blockIn, blockingActions, lineTarget, perfBy, perfLines, rollingFrom, standing } from "../lib/perf";
 
 const roleEnum = z.enum(STORE_ROLES);
@@ -93,6 +94,7 @@ export const team = {
     const perf = perfBy(lines);
     const stores = new Map((await db.select().from(s.stores).where(inArray(s.stores.id, storeIds))).map((x) => [x.id, x]));
     const canSeePins = v.level !== "staff";
+    const contactOpen = canSeePins && (await wallOpen(v));
     return rows
       .map((m) => {
         const items = ob.filter((o) => o.memberId === m.id);
@@ -106,7 +108,9 @@ export const team = {
           isTrainer: m.isTrainer,
           hireDate: m.hireDate,
           tenureDays: daysBetween(m.hireDate, today),
-          email: canSeePins ? m.email : null,
+          email: contactOpen ? m.email : null,
+          hasEmail: !!m.email,
+          hasAccount: !!m.userId,
           pin: canSeePins ? m.pin : null,
           onboarding: items.length ? summarize(items, today) : null,
           employment: m.employment,
@@ -162,6 +166,10 @@ export const team = {
       .where(eq(s.checklistLines.doneById, m.id));
     const self = v.member?.id === m.id;
     const priv = v.level !== "staff" || self;
+    // Contact details are private: your own always, anyone else's with private records open.
+    const wall = priv && (await wallOpen(v));
+    const contactOpen = self || wall;
+    if (contactOpen && !self) await logPrivate(v, "contact", { subjectId: m.id, headers: context.headers, dedupeMinutes: 10 });
     const st = store!;
     const targets = { dinner: lineTarget(st, m, m.role, "dinner"), lunch: lineTarget(st, m, m.role, "lunch") };
     const rolling = standing(perfBy(await perfLines([st.id], rollingFrom(today), today)).get(m.id));
@@ -170,16 +178,20 @@ export const team = {
       member: {
         ...m,
         pin: v.level !== "staff" ? m.pin : null,
-        email: priv ? m.email : null,
-        phone: priv ? m.phone : null,
+        email: contactOpen ? m.email : null,
+        phone: contactOpen ? m.phone : null,
+        hasEmail: !!m.email,
+        hasPhone: !!m.phone,
+        hasAccount: !!m.userId,
       },
+      contactLocked: !contactOpen,
       store: { id: store!.id, name: store!.name, number: store!.number, ticketTarget: store!.ticketTarget, grid: targetGrid(store!) },
       tenureDays: daysBetween(m.hireDate, today),
       today,
       onboarding,
       sales: priv ? lines.reverse().map((l) => ({ ...l, target: l.target ?? targets[l.shift], counted: isCounted(l.kind) })) : [],
       targets,
-      rolling: priv ? { ...rolling, from: rollingFrom(today), blocked: block?.reason ?? null } : null,
+      rolling: priv ? { ...rolling, from: rollingFrom(today), blocked: self || wall ? (block?.reason ?? null) : block ? "Held back from rewards this period (private)" : null } : null,
       checklistLinesInitialled: initialled.length,
       canManage: v.level !== "staff",
     };
@@ -259,8 +271,18 @@ export const team = {
       const patch: Partial<typeof s.members.$inferInsert> = {};
       if (input.role) patch.role = input.role;
       if (input.isTrainer !== undefined) patch.isTrainer = input.isTrainer;
-      if (input.email !== undefined) patch.email = input.email ? input.email.toLowerCase() : null;
-      if (input.phone !== undefined) patch.phone = input.phone || null;
+      // Contact details sit behind the privacy wall: with it shut, blanks mean unchanged and a new value needs it open.
+      const contactOpen = await wallOpen(context.viewer);
+      const newEmail = input.email === undefined ? undefined : input.email ? input.email.toLowerCase() : null;
+      const newPhone = input.phone === undefined ? undefined : input.phone || null;
+      if (newEmail !== undefined && newEmail !== m.email && (contactOpen || newEmail)) {
+        if (!contactOpen && m.email) throw privateError(context.viewer);
+        patch.email = newEmail;
+      }
+      if (newPhone !== undefined && newPhone !== m.phone && (contactOpen || newPhone)) {
+        if (!contactOpen && m.phone) throw privateError(context.viewer);
+        patch.phone = newPhone;
+      }
       if (input.resetPin) patch.pin = await uniqueMemberPin(m.storeId);
       if (input.employment) patch.employment = input.employment;
       if (input.targetAdjust !== undefined) patch.targetAdjust = input.targetAdjust || null;

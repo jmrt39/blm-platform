@@ -1,6 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-const queryClient = new QueryClient();
+/** Refusals (private, forbidden, not found) will not change on a retry; network blips might. */
+function retry(count: number, error: unknown) {
+  const status = error && typeof error === "object" && "status" in error ? Number((error as { status: unknown }).status) : 0;
+  if (status >= 400 && status < 500) return false;
+  return count < 3;
+}
+
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry } } });
 
 interface ProviderProps {
   children: React.ReactNode;
