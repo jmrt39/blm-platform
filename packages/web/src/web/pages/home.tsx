@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { motion } from "motion/react";
 import { useState } from "react";
-import { ArrowUpRight, Check } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { HowCalculated } from "../components/how";
 import { ProgramBlock, StaffProgram } from "../components/program-home";
 import { Page, Loading, ErrorNote } from "../components/shell";
@@ -11,7 +11,6 @@ import { Monogram } from "../components/monogram";
 import { LastYearStrip } from "../components/last-year";
 import { useHome } from "../queries/reports";
 import { useTodayChecklists } from "../queries/checklists";
-import { useSetupStatus } from "../queries/setup";
 import { useMember } from "../queries/team";
 import { OnboardingResume } from "./team";
 import { FeedbackInbox } from "../components/feedback-inbox";
@@ -30,54 +29,6 @@ export default function Home() {
   const v = useViewer();
   if (v.me.level === "staff") return <StaffHome />;
   return <OwnerHome />;
-}
-
-/** Shown to a new group until the seven setup steps are done. Disappears on its own. */
-function GettingStarted() {
-  const q = useSetupStatus();
-  const s = q.data;
-  if (!s || s.done >= s.total) return null;
-  const next = s.steps.find((x) => !x.done);
-  return (
-    <motion.section {...rise(0)} className="mb-10 rounded-[2px] bg-noir p-6 text-ivory md:p-8">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <div className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-gold">Getting started</div>
-          <h2 className="mt-1 font-display text-[26px]">
-            {s.done} of {s.total} done. Next: {next?.label}.
-          </h2>
-        </div>
-        <div className="h-1.5 w-40 overflow-hidden rounded-full bg-white/10">
-          <div className="h-full bg-gold" style={{ width: `${(s.done / s.total) * 100}%` }} />
-        </div>
-      </div>
-      <ol className="mt-6 grid gap-2 md:grid-cols-2">
-        {s.steps.map((st, i) => (
-          <li key={st.key}>
-            <Link
-              href={st.href}
-              className={cn(
-                "flex items-center gap-3 rounded-[2px] border border-white/10 px-4 py-3 text-[13.5px] transition hover:border-gold/60",
-                st.done && "text-[#8b8277] line-through decoration-white/20",
-              )}
-            >
-              <span className={cn("grid size-6 shrink-0 place-items-center rounded-full border text-[11px]", st.done ? "border-gold bg-gold text-noir" : "border-white/25")}>
-                {st.done ? <Check className="size-3.5" /> : i + 1}
-              </span>
-              {st.label}
-            </Link>
-          </li>
-        ))}
-      </ol>
-      <p className="mt-5 text-[12.5px] text-[#b5ab9d]">
-        Rather do it in one go?{" "}
-        <a href="/templates/blm-client-intake.xlsx" download="BLM client intake.xlsx" className="font-semibold text-gold underline">
-          Download the intake sheet
-        </a>
-        , fill in what you have and send it to BLM. Stores, targets, review pages, your team and last year's sales are set up from it.
-      </p>
-    </motion.section>
-  );
 }
 
 const PRIORITY = { 1: "Today", 2: "This week", 3: "When you can" } as const;
@@ -132,7 +83,6 @@ function OwnerHome() {
         </>
       }
     >
-      <GettingStarted />
       {/* Last night */}
       <motion.div {...rise(0)} className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <div className="eyebrow">Last night · {shortDay(h.lastNight)}</div>

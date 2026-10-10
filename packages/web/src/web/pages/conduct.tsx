@@ -97,8 +97,8 @@ function ManagerConduct() {
           </div>
 
           <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr]">
-            <div>
-              <div className="mb-2 flex items-baseline justify-between">
+            <div className="min-w-0">
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
                 <div className="eyebrow">Last 30 days</div>
                 <div className="text-[11.5px] text-ink-soft">Excuse anything with a good reason and it stops counting.</div>
               </div>
@@ -112,7 +112,7 @@ function ManagerConduct() {
                 </ul>
               )}
             </div>
-            <div className="space-y-8">
+            <div className="min-w-0 space-y-8">
               <div>
                 <div className="eyebrow mb-2">Shift swaps · 30 days</div>
                 {!d.swaps.length ? (

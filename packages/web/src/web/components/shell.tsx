@@ -122,11 +122,11 @@ function ScopePicker() {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-[2px] border border-noir-line px-3 py-1.5 text-left hover:border-gold/60"
+        className="flex min-w-0 items-center gap-1.5 rounded-[2px] border border-noir-line px-2 py-1.5 text-left hover:border-gold/60 sm:gap-2 sm:px-3"
       >
         <div>
           <div className="text-[9.5px] font-bold uppercase tracking-[0.18em] text-gold">Viewing</div>
-          <div className="max-w-[190px] truncate text-[13px] text-ivory">{label}</div>
+          <div className="max-w-[92px] truncate text-[13px] text-ivory sm:max-w-[190px]">{label}</div>
         </div>
         <ChevronDown className="size-4 text-gold" />
       </button>
@@ -183,15 +183,16 @@ function ViewAsSwitcher() {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 whitespace-nowrap rounded-[2px] bg-gold/10 px-3 py-1.5 text-[12px] font-semibold text-gold hover:bg-gold/20"
+        aria-label="View as"
+        className="flex items-center gap-1.5 whitespace-nowrap rounded-[2px] bg-gold/10 px-2 py-1.5 text-[12px] font-semibold text-gold hover:bg-gold/20 sm:gap-2 sm:px-3"
       >
-        <Eye className="size-3.5" /> <span className="hidden 2xl:inline">View as:</span> <span className="max-w-[120px] truncate">{current}</span>
+        <Eye className="size-3.5" /> <span className="hidden 2xl:inline">View as:</span> <span className="hidden max-w-[120px] truncate sm:inline">{current}</span>
         <ChevronDown className="size-3.5" />
       </button>
       {open && (
         <>
           <button type="button" aria-label="Close menu" className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-[2px] border border-noir-line bg-noir-2 p-1.5 shadow-2xl">
+          <div className="absolute right-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-1.5rem))] rounded-[2px] border border-noir-line bg-noir-2 p-1.5 shadow-2xl">
             <div className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-gold">Preview the demo as</div>
             <ScopeItem active={!v.me.viewingAs} onClick={() => go(null)} title="Owner (you)" sub="All stores · combined reports" />
             {["D. Kerr", "Camille Rhodes", "Chris Ortega", "Andre Wallace", "Rebecca Stone"].map((n) => {
@@ -279,7 +280,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="noir-frame grain on-noir min-h-screen">
       <header className="sticky top-0 z-30 border-b border-noir-line bg-noir/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-5 px-4 md:px-6">
+        <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-2.5 px-3 sm:gap-5 sm:px-4 md:px-6">
           <Link href="/" className="flex items-center gap-3">
             <Monogram size={38} />
             <Wordmark className="hidden 2xl:block" />
@@ -302,7 +303,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             ))}
             {program.length > 0 && <ProgramMenu items={program} active={active} />}
           </nav>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             {v.me.isDemo && <DemoLabel className="hidden whitespace-nowrap 2xl:inline-flex" />}
             <ViewAsSwitcher />
             <UserChip />

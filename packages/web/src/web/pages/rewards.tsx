@@ -65,7 +65,7 @@ export default function RewardsPage() {
               const shown = open === b.key ? rows : rows.slice(0, 6);
               const word = b.closed ? `for ${b.period.label.split(" ")[0]}` : (PERIOD_WORD[r.cadence] ?? "this period");
               return (
-                <section key={b.key} className="rounded-[2px] border rule p-5">
+                <section key={b.key} className="min-w-0 rounded-[2px] border rule p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="eyebrow mb-1">
@@ -73,7 +73,7 @@ export default function RewardsPage() {
                       </div>
                       <h2 className="font-display text-[23px] leading-tight">{r.title}</h2>
                     </div>
-                    <span className="chip shrink-0 border-gold-deep/60 text-gold-deep">{r.value}</span>
+                    <span className="chip max-w-[50%] shrink-0 !whitespace-normal text-right border-gold-deep/60 text-gold-deep">{r.value}</span>
                   </div>
                   <div className="mt-3 rounded-[2px] bg-paper-2/50 px-3.5 py-3">
                     <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">

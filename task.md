@@ -163,6 +163,8 @@ Progress
 - [x] Harbor House (placeholder): Bring in the latest, v4 published, no 1906 in its copy
 - [x] Website incentives line updated
 - [x] verify (tsc, lint, build, Playwright), commit
+- [x] Getting started card removed from home (user request); Google review page link can come later
+- [x] Phones: header fits 375px (menu button was off screen), wide tables scroll inside themselves, rewards and conduct grids no longer push the page sideways
 - [ ] push (needs a new GitHub token)
 Open
 - Harbor House: still carries the BLM sample menu, wines and drinks (Write from their lists once real lists arrive)

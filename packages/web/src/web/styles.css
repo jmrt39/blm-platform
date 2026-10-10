@@ -315,4 +315,14 @@
     text-align: right;
     font-variant-numeric: tabular-nums;
   }
+  /* Phones: a wide table scrolls inside itself instead of pushing the page sideways. */
+  @media (max-width: 767px) {
+    .tbl {
+      display: block;
+      max-width: 100%;
+      min-width: 0 !important;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
 }
