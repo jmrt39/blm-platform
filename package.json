@@ -35,5 +35,8 @@
     "@libsql/client": "^0.17.2",
     "cloudflare": "^5.2.0",
     "pm2": "^7.0.1"
+  },
+  "overrides": {
+    "cpu-features": "file:./scripts/stubs/cpu-features"
   }
 }
